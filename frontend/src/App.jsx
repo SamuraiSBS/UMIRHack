@@ -13,9 +13,7 @@ import Menu from './pages/customer/Menu';
 import MyOrders from './pages/customer/MyOrders';
 
 // Courier pages
-import ShiftControl from './pages/courier/ShiftControl';
-import AvailableOrders from './pages/courier/AvailableOrders';
-import ActiveOrder from './pages/courier/ActiveOrder';
+import CourierAppDownload from './pages/courier/CourierAppDownload';
 
 // Business pages
 import Dashboard from './pages/business/Dashboard';
@@ -51,10 +49,10 @@ export default function App() {
         <Route path="/shops/:id/menu" element={<ProtectedRoute roles={['CUSTOMER']}><Menu /></ProtectedRoute>} />
         <Route path="/orders" element={<ProtectedRoute roles={['CUSTOMER']}><MyOrders /></ProtectedRoute>} />
 
-        {/* Courier routes */}
-        <Route path="/courier" element={<ProtectedRoute roles={['COURIER']}><ShiftControl /></ProtectedRoute>} />
-        <Route path="/courier/orders" element={<ProtectedRoute roles={['COURIER']}><AvailableOrders /></ProtectedRoute>} />
-        <Route path="/courier/active" element={<ProtectedRoute roles={['COURIER']}><ActiveOrder /></ProtectedRoute>} />
+        {/* Courier routes — full functionality moved to the mobile app */}
+        <Route path="/courier" element={<ProtectedRoute roles={['COURIER']}><CourierAppDownload /></ProtectedRoute>} />
+        <Route path="/courier/orders" element={<ProtectedRoute roles={['COURIER']}><CourierAppDownload /></ProtectedRoute>} />
+        <Route path="/courier/active" element={<ProtectedRoute roles={['COURIER']}><CourierAppDownload /></ProtectedRoute>} />
 
         {/* Business routes */}
         <Route path="/business" element={<ProtectedRoute roles={['BUSINESS']}><Dashboard /></ProtectedRoute>} />
