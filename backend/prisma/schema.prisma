@@ -1,0 +1,95 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  COURIER
+  CUSTOMER
+  BUSINESS
+}
+
+enum OrderStatus {
+  CREATED
+  ACCEPTED
+  DELIVERING
+  DONE
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String?
+  role      Role     @default(CUSTOMER)
+  createdAt DateTime @default(now())
+
+  business      Business?
+  // Orders placed by this user as a customer
+  customerOrders Order[]      @relation("CustomerOrders")
+  // Orders assigned to this user as a courier
+  courierOrders  Order[]      @relation("CourierOrders")
+  shift          CourierShift?
+}
+
+model Business {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  ownerId     String    @unique
+  owner       User      @relation(fields: [ownerId], references: [id])
+  products    Product[]
+  orders      Order[]
+}
+
+model Product {
+  id          String      @id @default(cuid())
+  name        String
+  description String?
+  price       Float
+  businessId  String
+  business    Business    @relation(fields: [businessId], references: [id])
+  orderItems  OrderItem[]
+}
+
+model Order {
+  id         String      @id @default(cuid())
+  status     OrderStatus @default(CREATED)
+  address    String
+  totalPrice Float
+  createdAt  DateTime    @default(now())
+
+  customerId String
+  courierId  String?
+  businessId String
+
+  customer User     @relation("CustomerOrders", fields: [customerId], references: [id])
+  courier  User?    @relation("CourierOrders", fields: [courierId], references: [id])
+  business Business @relation(fields: [businessId], references: [id])
+
+  items OrderItem[]
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  quantity  Int
+  orderId   String
+  productId String
+
+  order   Order   @relation(fields: [orderId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+}
+
+model CourierShift {
+  id        String   @id @default(cuid())
+  isActive  Boolean  @default(false)
+  startedAt DateTime @default(now())
+  courierId String   @unique
+
+  courier User @relation(fields: [courierId], references: [id])
+}

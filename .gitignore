@@ -1,0 +1,45 @@
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+pnpm-lock.yaml
+package-lock.json
+
+# Build outputs
+dist/
+build/
+*.o
+*.a
+*.so
+*.dylib
+*.exe
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# OS
+Thumbs.db
+.DS_Store
+*.log
+
+# Dependencies
+/.pnp
+.pnp.js
+
+# Testing
+coverage/
+.nyc_output/
+
+# Misc
+*.pdf
+.claude/
