@@ -4,7 +4,10 @@
     "slug": "delivery-courier",
     "version": "1.0.0",
     "orientation": "portrait",
-    "platforms": ["android", "ios"],
+    "platforms": [
+      "android",
+      "ios"
+    ],
     "android": {
       "package": "com.delivery.courier",
       "versionCode": 1,
@@ -13,7 +16,8 @@
       }
     },
     "extra": {
-      "apiUrl": "http://192.168.1.100:3001"
-    }
+      "apiUrl": "http://192.168.1.61:3001"
+    },
+    "plugins": []
   }
 }
