@@ -16,7 +16,7 @@ const styles = {
     boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
   },
   logo: { fontWeight: 700, fontSize: '18px', color: '#2563eb' },
-  links: { display: 'flex', gap: '16px', alignItems: 'center' },
+  links: { display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' },
   link: { fontSize: '14px', color: '#374151', fontWeight: 500 },
   btn: {
     background: '#2563eb',
@@ -69,6 +69,16 @@ export default function Navbar() {
           <>
             <Link to="/business" style={styles.link}>Заказы</Link>
             <Link to="/business/products" style={styles.link}>Меню</Link>
+            <Link to="/business/settings" style={styles.link}>Настройки</Link>
+          </>
+        )}
+
+        {user?.role === 'ADMIN' && (
+          <>
+            <Link to="/admin" style={styles.link}>Дашборд</Link>
+            <Link to="/admin/users" style={styles.link}>Пользователи</Link>
+            <Link to="/admin/businesses" style={styles.link}>Заведения</Link>
+            <Link to="/admin/orders" style={styles.link}>Заказы</Link>
           </>
         )}
 

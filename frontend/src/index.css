@@ -115,6 +115,7 @@ input:focus, select:focus, textarea:focus {
 .badge-accepted { background: #fef3c7; color: #92400e; }
 .badge-delivering { background: #d1fae5; color: #065f46; }
 .badge-done     { background: #f3f4f6; color: #374151; }
+.badge-cancelled { background: #fee2e2; color: #991b1b; }
 
 .error-msg {
   background: #fee2e2;
@@ -137,6 +138,30 @@ input:focus, select:focus, textarea:focus {
   font-weight: 600;
   color: var(--gray-700);
 }
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.table th {
+  text-align: left;
+  padding: 10px 12px;
+  background: var(--gray-50);
+  border-bottom: 2px solid var(--gray-200);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--gray-500);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--gray-100);
+  vertical-align: top;
+}
+.table tr:last-child td { border-bottom: none; }
+.table tr:hover td { background: var(--gray-50); }
 
 .flex { display: flex; }
 .gap-8 { gap: 8px; }

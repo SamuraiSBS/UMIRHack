@@ -131,6 +131,24 @@ router.post('/:id/accept', verifyToken, requireRole('COURIER'), async (req, res)
   }
 });
 
+// POST /api/orders/:id/cancel — customer cancels a CREATED order
+router.post('/:id/cancel', verifyToken, requireRole('CUSTOMER'), async (req, res) => {
+  try {
+    const updated = await prisma.order.updateMany({
+      where: { id: req.params.id, customerId: req.user.id, status: 'CREATED' },
+      data: { status: 'CANCELLED' },
+    });
+
+    if (updated.count === 0) {
+      return res.status(409).json({ error: 'Order cannot be cancelled (not found or already in progress)' });
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to cancel order' });
+  }
+});
+
 // PATCH /api/orders/:id/status — courier updates order status
 // Body: { status: 'DELIVERING' | 'DONE' }
 router.patch('/:id/status', verifyToken, requireRole('COURIER'), async (req, res) => {

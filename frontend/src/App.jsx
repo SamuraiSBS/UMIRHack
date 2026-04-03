@@ -20,12 +20,20 @@ import ActiveOrder from './pages/courier/ActiveOrder';
 // Business pages
 import Dashboard from './pages/business/Dashboard';
 import Products from './pages/business/Products';
+import BusinessSettings from './pages/business/BusinessSettings';
+
+// Admin pages
+import AdminDashboard from './pages/admin/AdminDashboard';
+import AdminUsers from './pages/admin/AdminUsers';
+import AdminBusinesses from './pages/admin/AdminBusinesses';
+import AdminOrders from './pages/admin/AdminOrders';
 
 function HomeRedirect() {
   const { user } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
   if (user.role === 'COURIER') return <Navigate to="/courier" replace />;
   if (user.role === 'BUSINESS') return <Navigate to="/business" replace />;
+  if (user.role === 'ADMIN') return <Navigate to="/admin" replace />;
   return <Navigate to="/shops" replace />;
 }
 
@@ -51,6 +59,13 @@ export default function App() {
         {/* Business routes */}
         <Route path="/business" element={<ProtectedRoute roles={['BUSINESS']}><Dashboard /></ProtectedRoute>} />
         <Route path="/business/products" element={<ProtectedRoute roles={['BUSINESS']}><Products /></ProtectedRoute>} />
+        <Route path="/business/settings" element={<ProtectedRoute roles={['BUSINESS']}><BusinessSettings /></ProtectedRoute>} />
+
+        {/* Admin routes */}
+        <Route path="/admin" element={<ProtectedRoute roles={['ADMIN']}><AdminDashboard /></ProtectedRoute>} />
+        <Route path="/admin/users" element={<ProtectedRoute roles={['ADMIN']}><AdminUsers /></ProtectedRoute>} />
+        <Route path="/admin/businesses" element={<ProtectedRoute roles={['ADMIN']}><AdminBusinesses /></ProtectedRoute>} />
+        <Route path="/admin/orders" element={<ProtectedRoute roles={['ADMIN']}><AdminOrders /></ProtectedRoute>} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

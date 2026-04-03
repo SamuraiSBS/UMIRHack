@@ -6,6 +6,7 @@ const STATUS_LABELS = {
   ACCEPTED: ['badge-accepted', 'Принят курьером'],
   DELIVERING: ['badge-delivering', 'В пути'],
   DONE: ['badge-done', 'Доставлен'],
+  CANCELLED: ['badge-cancelled', 'Отменён'],
 };
 
 function StatusBadge({ status }) {
@@ -16,26 +17,46 @@ function StatusBadge({ status }) {
 export default function MyOrders() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [cancelling, setCancelling] = useState(null);
+  const [error, setError] = useState('');
+
+  function load() {
+    return api.get('/orders/my')
+      .then(r => setOrders(r.data))
+      .catch(() => {});
+  }
 
   useEffect(() => {
-    api.get('/orders/my')
-      .then(r => setOrders(r.data))
-      .finally(() => setLoading(false));
+    load().finally(() => setLoading(false));
   }, []);
 
   // Poll for status updates every 10 seconds while page is open
   useEffect(() => {
-    const interval = setInterval(() => {
-      api.get('/orders/my').then(r => setOrders(r.data)).catch(() => {});
-    }, 10000);
+    const interval = setInterval(load, 10000);
     return () => clearInterval(interval);
   }, []);
+
+  async function handleCancel(orderId) {
+    if (!confirm('Отменить заказ?')) return;
+    setCancelling(orderId);
+    setError('');
+    try {
+      await api.post(`/orders/${orderId}/cancel`);
+      await load();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Не удалось отменить заказ');
+    } finally {
+      setCancelling(null);
+    }
+  }
 
   if (loading) return <div className="page"><p>Загрузка заказов...</p></div>;
 
   return (
     <div className="page">
       <h1 className="page-title">Мои заказы</h1>
+
+      {error && <div className="error-msg">{error}</div>}
 
       {orders.length === 0 && (
         <div className="card" style={{ textAlign: 'center', padding: '40px' }}>
@@ -53,7 +74,19 @@ export default function MyOrders() {
                   {new Date(order.createdAt).toLocaleString('ru-RU')}
                 </p>
               </div>
-              <StatusBadge status={order.status} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <StatusBadge status={order.status} />
+                {order.status === 'CREATED' && (
+                  <button
+                    onClick={() => handleCancel(order.id)}
+                    disabled={cancelling === order.id}
+                    className="btn-danger"
+                    style={{ padding: '3px 10px', fontSize: '12px' }}
+                  >
+                    {cancelling === order.id ? '...' : 'Отменить'}
+                  </button>
+                )}
+              </div>
             </div>
 
             <p className="text-sm" style={{ marginTop: '8px', color: '#374151' }}>

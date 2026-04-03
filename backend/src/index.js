@@ -6,6 +6,7 @@ const authRoutes = require('./routes/auth');
 const businessRoutes = require('./routes/business');
 const ordersRoutes = require('./routes/orders');
 const courierRoutes = require('./routes/courier');
+const adminRoutes = require('./routes/admin');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -22,6 +23,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api', businessRoutes);
 app.use('/api/orders', ordersRoutes);
 app.use('/api/courier', courierRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Global error handler
 app.use((err, req, res, next) => {

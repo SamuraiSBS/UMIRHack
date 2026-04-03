@@ -19,6 +19,7 @@ enum OrderStatus {
   ACCEPTED
   DELIVERING
   DONE
+  CANCELLED
 }
 
 model User {
@@ -27,6 +28,7 @@ model User {
   password  String
   name      String?
   role      Role     @default(CUSTOMER)
+  isBlocked Boolean  @default(false)
   createdAt DateTime @default(now())
 
   business      Business?
@@ -38,13 +40,24 @@ model User {
 }
 
 model Business {
-  id          String    @id @default(cuid())
-  name        String
-  description String?
-  ownerId     String    @unique
-  owner       User      @relation(fields: [ownerId], references: [id])
-  products    Product[]
-  orders      Order[]
+  id           String         @id @default(cuid())
+  name         String
+  description  String?
+  deliveryZone String?
+  isBlocked    Boolean        @default(false)
+  ownerId      String         @unique
+  owner        User           @relation(fields: [ownerId], references: [id])
+  products     Product[]
+  orders       Order[]
+  tradingPoints TradingPoint[]
+}
+
+model TradingPoint {
+  id         String   @id @default(cuid())
+  name       String
+  address    String
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id])
 }
 
 model Product {

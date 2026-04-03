@@ -1,9 +1,24 @@
 {
-  "name": "Доставка",
+  "name": "Доставка — агрегатор",
   "short_name": "Доставка",
+  "description": "Сервис заказа и доставки еды",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
+  "orientation": "portrait",
   "theme_color": "#2563eb",
-  "icons": []
+  "background_color": "#f9fafb",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
 }

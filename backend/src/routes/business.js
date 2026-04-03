@@ -8,7 +8,8 @@ const prisma = new PrismaClient();
 router.get('/business', async (req, res) => {
   try {
     const businesses = await prisma.business.findMany({
-      select: { id: true, name: true, description: true },
+      where: { isBlocked: false },
+      select: { id: true, name: true, description: true, deliveryZone: true },
     });
     res.json(businesses);
   } catch (err) {
@@ -18,7 +19,7 @@ router.get('/business', async (req, res) => {
 
 // POST /api/business — create a business (BUSINESS role only, one per user)
 router.post('/business', verifyToken, requireRole('BUSINESS'), async (req, res) => {
-  const { name, description } = req.body;
+  const { name, description, deliveryZone } = req.body;
   if (!name) return res.status(400).json({ error: 'Name is required' });
 
   try {
@@ -26,7 +27,7 @@ router.post('/business', verifyToken, requireRole('BUSINESS'), async (req, res) 
     if (existing) return res.status(409).json({ error: 'Business already exists for this account' });
 
     const business = await prisma.business.create({
-      data: { name, description, ownerId: req.user.id },
+      data: { name, description, deliveryZone, ownerId: req.user.id },
     });
     res.status(201).json(business);
   } catch (err) {
@@ -42,6 +43,74 @@ router.get('/business/my', verifyToken, requireRole('BUSINESS'), async (req, res
     res.json(business);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch business' });
+  }
+});
+
+// PATCH /api/business/my — update business info
+router.patch('/business/my', verifyToken, requireRole('BUSINESS'), async (req, res) => {
+  const { name, description, deliveryZone } = req.body;
+  try {
+    const business = await prisma.business.findUnique({ where: { ownerId: req.user.id } });
+    if (!business) return res.status(404).json({ error: 'No business found' });
+
+    const updated = await prisma.business.update({
+      where: { id: business.id },
+      data: {
+        ...(name && { name }),
+        ...(description !== undefined && { description }),
+        ...(deliveryZone !== undefined && { deliveryZone }),
+      },
+    });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update business' });
+  }
+});
+
+// GET /api/business/my/trading-points — list trading points
+router.get('/business/my/trading-points', verifyToken, requireRole('BUSINESS'), async (req, res) => {
+  try {
+    const business = await prisma.business.findUnique({ where: { ownerId: req.user.id } });
+    if (!business) return res.status(404).json({ error: 'No business found' });
+
+    const points = await prisma.tradingPoint.findMany({ where: { businessId: business.id } });
+    res.json(points);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch trading points' });
+  }
+});
+
+// POST /api/business/my/trading-points — add trading point
+router.post('/business/my/trading-points', verifyToken, requireRole('BUSINESS'), async (req, res) => {
+  const { name, address } = req.body;
+  if (!name || !address) return res.status(400).json({ error: 'Name and address are required' });
+
+  try {
+    const business = await prisma.business.findUnique({ where: { ownerId: req.user.id } });
+    if (!business) return res.status(404).json({ error: 'No business found' });
+
+    const point = await prisma.tradingPoint.create({
+      data: { name, address, businessId: business.id },
+    });
+    res.status(201).json(point);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to create trading point' });
+  }
+});
+
+// DELETE /api/business/my/trading-points/:id — remove trading point
+router.delete('/business/my/trading-points/:id', verifyToken, requireRole('BUSINESS'), async (req, res) => {
+  try {
+    const business = await prisma.business.findUnique({ where: { ownerId: req.user.id } });
+    if (!business) return res.status(404).json({ error: 'No business found' });
+
+    const point = await prisma.tradingPoint.findUnique({ where: { id: req.params.id } });
+    if (!point || point.businessId !== business.id) return res.status(404).json({ error: 'Trading point not found' });
+
+    await prisma.tradingPoint.delete({ where: { id: req.params.id } });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete trading point' });
   }
 });
 
@@ -72,6 +141,30 @@ router.post('/products', verifyToken, requireRole('BUSINESS'), async (req, res) 
     res.status(201).json(product);
   } catch (err) {
     res.status(500).json({ error: 'Failed to create product' });
+  }
+});
+
+// PATCH /api/products/:id — update a product
+router.patch('/products/:id', verifyToken, requireRole('BUSINESS'), async (req, res) => {
+  const { name, description, price } = req.body;
+  try {
+    const business = await prisma.business.findUnique({ where: { ownerId: req.user.id } });
+    if (!business) return res.status(404).json({ error: 'Business not found' });
+
+    const product = await prisma.product.findUnique({ where: { id: req.params.id } });
+    if (!product || product.businessId !== business.id) return res.status(404).json({ error: 'Product not found' });
+
+    const updated = await prisma.product.update({
+      where: { id: req.params.id },
+      data: {
+        ...(name && { name }),
+        ...(description !== undefined && { description }),
+        ...(price != null && { price: Number(price) }),
+      },
+    });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update product' });
   }
 });
 

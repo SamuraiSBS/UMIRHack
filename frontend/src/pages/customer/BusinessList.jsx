@@ -32,6 +32,11 @@ export default function BusinessList() {
               <div style={{ fontSize: '36px', marginBottom: '8px' }}>🍽️</div>
               <h2 style={{ fontSize: '17px', fontWeight: 700 }}>{b.name}</h2>
               {b.description && <p className="text-sm text-gray" style={{ marginTop: '4px' }}>{b.description}</p>}
+              {b.deliveryZone && (
+                <p className="text-sm" style={{ marginTop: '6px', color: '#6b7280' }}>
+                  📍 {b.deliveryZone}
+                </p>
+              )}
               <p className="text-sm" style={{ marginTop: '12px', color: '#2563eb', fontWeight: 500 }}>Смотреть меню →</p>
             </div>
           </Link>

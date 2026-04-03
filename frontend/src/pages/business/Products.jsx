@@ -8,6 +8,9 @@ export default function Products() {
   const [form, setForm] = useState({ name: '', description: '', price: '' });
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(null);
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({ name: '', description: '', price: '' });
+  const [editSaving, setEditSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -26,6 +29,7 @@ export default function Products() {
   }, []);
 
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
+  const setEdit = (k) => (e) => setEditForm(f => ({ ...f, [k]: e.target.value }));
 
   async function handleAdd(e) {
     e.preventDefault();
@@ -42,6 +46,37 @@ export default function Products() {
       setError(err.response?.data?.error || 'Ошибка добавления');
     } finally {
       setSaving(false);
+    }
+  }
+
+  function startEdit(product) {
+    setEditingId(product.id);
+    setEditForm({ name: product.name, description: product.description || '', price: String(product.price) });
+    setError('');
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditForm({ name: '', description: '', price: '' });
+  }
+
+  async function handleEdit(productId) {
+    if (!editForm.name || !editForm.price) { setError('Название и цена обязательны'); return; }
+    setError('');
+    setEditSaving(true);
+    try {
+      const res = await api.patch(`/products/${productId}`, {
+        name: editForm.name,
+        description: editForm.description,
+        price: parseFloat(editForm.price),
+      });
+      setProducts(prev => prev.map(p => p.id === productId ? res.data : p));
+      setEditingId(null);
+      setSuccess('Позиция обновлена!');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Ошибка обновления');
+    } finally {
+      setEditSaving(false);
     }
   }
 
@@ -110,19 +145,64 @@ export default function Products() {
       <div className="grid grid-2">
         {products.map(p => (
           <div key={p.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <h3 style={{ fontSize: '15px', fontWeight: 600 }}>{p.name}</h3>
-              <button
-                onClick={() => handleDelete(p.id)}
-                disabled={deleting === p.id}
-                className="btn-danger"
-                style={{ padding: '4px 10px', fontSize: '12px', flexShrink: 0, marginLeft: '8px' }}
-              >
-                {deleting === p.id ? '...' : 'Удалить'}
-              </button>
-            </div>
-            {p.description && <p className="text-sm text-gray">{p.description}</p>}
-            <p style={{ fontWeight: 700, color: '#2563eb', fontSize: '16px' }}>{p.price} ₽</p>
+            {editingId === p.id ? (
+              /* Inline edit form */
+              <div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label>Название</label>
+                    <input value={editForm.name} onChange={setEdit('name')} />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label>Цена (₽)</label>
+                    <input type="number" min="0" step="0.01" value={editForm.price} onChange={setEdit('price')} />
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label>Описание</label>
+                  <input value={editForm.description} onChange={setEdit('description')} />
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={() => handleEdit(p.id)}
+                    disabled={editSaving}
+                    className="btn-success"
+                    style={{ padding: '4px 10px', fontSize: '12px' }}
+                  >
+                    {editSaving ? '...' : 'Сохранить'}
+                  </button>
+                  <button onClick={cancelEdit} className="btn-outline" style={{ padding: '4px 10px', fontSize: '12px' }}>
+                    Отмена
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* Normal view */
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <h3 style={{ fontSize: '15px', fontWeight: 600 }}>{p.name}</h3>
+                  <div style={{ display: 'flex', gap: '6px', flexShrink: 0, marginLeft: '8px' }}>
+                    <button
+                      onClick={() => startEdit(p)}
+                      className="btn-outline"
+                      style={{ padding: '4px 10px', fontSize: '12px' }}
+                    >
+                      Изменить
+                    </button>
+                    <button
+                      onClick={() => handleDelete(p.id)}
+                      disabled={deleting === p.id}
+                      className="btn-danger"
+                      style={{ padding: '4px 10px', fontSize: '12px' }}
+                    >
+                      {deleting === p.id ? '...' : 'Удалить'}
+                    </button>
+                  </div>
+                </div>
+                {p.description && <p className="text-sm text-gray">{p.description}</p>}
+                <p style={{ fontWeight: 700, color: '#2563eb', fontSize: '16px' }}>{p.price} ₽</p>
+              </>
+            )}
           </div>
         ))}
       </div>
