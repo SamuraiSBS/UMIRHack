@@ -3,12 +3,14 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator, NativeStackNavigationOptions } from '@react-navigation/native-stack';
 import { useAuth } from '../contexts/AuthContext';
 import LoginScreen from '../screens/LoginScreen';
+import RegisterScreen from '../screens/RegisterScreen';
 import ShiftControlScreen from '../screens/ShiftControlScreen';
 import AvailableOrdersScreen from '../screens/AvailableOrdersScreen';
 import ActiveOrderScreen from '../screens/ActiveOrderScreen';
 
 export type RootStackParamList = {
   Login: undefined;
+  Register: undefined;
   ShiftControl: undefined;
   AvailableOrders: undefined;
   ActiveOrder: undefined;
@@ -63,11 +65,18 @@ export default function AppNavigator() {
             />
           </>
         ) : (
-          <Stack.Screen
-            name="Login"
-            component={LoginScreen}
-            options={{ headerShown: false }}
-          />
+          <>
+            <Stack.Screen
+              name="Login"
+              component={LoginScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="Register"
+              component={RegisterScreen}
+              options={{ headerShown: false }}
+            />
+          </>
         )}
       </Stack.Navigator>
     </NavigationContainer>

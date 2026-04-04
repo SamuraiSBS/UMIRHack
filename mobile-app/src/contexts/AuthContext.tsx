@@ -13,6 +13,7 @@ interface AuthContextValue {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string, name: string, deliveryZone: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -41,13 +42,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(userData);
   }
 
+  async function register(email: string, password: string, name: string, deliveryZone: string) {
+    const res = await api.post('/auth/register', { email, password, name, role: 'COURIER', deliveryZone });
+    const { token, user: userData } = res.data;
+    await AsyncStorage.multiSet([
+      ['token', token],
+      ['user', JSON.stringify(userData)],
+    ]);
+    setUser(userData);
+  }
+
   async function logout() {
     await AsyncStorage.multiRemove(['token', 'user']);
     setUser(null);
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );

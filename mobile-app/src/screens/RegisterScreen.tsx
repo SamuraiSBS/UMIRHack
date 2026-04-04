@@ -13,12 +13,14 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../contexts/AuthContext';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
+type Props = NativeStackScreenProps<RootStackParamList, 'Register'>;
 
-export default function LoginScreen({ navigation }: Props) {
-  const { login } = useAuth();
+export default function RegisterScreen({ navigation }: Props) {
+  const { register } = useAuth();
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [deliveryZone, setDeliveryZone] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -27,13 +29,17 @@ export default function LoginScreen({ navigation }: Props) {
       setError('Введите email и пароль');
       return;
     }
+    if (password.length < 6) {
+      setError('Пароль должен содержать минимум 6 символов');
+      return;
+    }
     setLoading(true);
     setError('');
     try {
-      await login(email.trim(), password);
-      // Navigation is handled automatically by AppNavigator re-render
+      await register(email.trim(), password, name.trim(), deliveryZone.trim());
+      // Navigation handled automatically by AppNavigator re-render
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Неверный email или пароль');
+      setError(err.response?.data?.error || 'Ошибка регистрации');
     } finally {
       setLoading(false);
     }
@@ -50,13 +56,24 @@ export default function LoginScreen({ navigation }: Props) {
       >
         <View style={styles.card}>
           <Text style={styles.logo}>🚴</Text>
-          <Text style={styles.title}>Курьер — вход</Text>
+          <Text style={styles.title}>Курьер — регистрация</Text>
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
+          <Text style={styles.label}>Имя</Text>
           <TextInput
             style={styles.input}
-            placeholder="Email"
+            placeholder="Иван Иванов"
+            placeholderTextColor="#9ca3af"
+            autoCorrect={false}
+            value={name}
+            onChangeText={setName}
+          />
+
+          <Text style={styles.label}>Email</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="you@example.com"
             placeholderTextColor="#9ca3af"
             keyboardType="email-address"
             autoCapitalize="none"
@@ -64,13 +81,24 @@ export default function LoginScreen({ navigation }: Props) {
             value={email}
             onChangeText={setEmail}
           />
+
+          <Text style={styles.label}>Пароль</Text>
           <TextInput
             style={styles.input}
-            placeholder="Пароль"
+            placeholder="Минимум 6 символов"
             placeholderTextColor="#9ca3af"
             secureTextEntry
             value={password}
             onChangeText={setPassword}
+          />
+
+          <Text style={styles.label}>Зона доставки</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Например: Центральный район"
+            placeholderTextColor="#9ca3af"
+            value={deliveryZone}
+            onChangeText={setDeliveryZone}
             onSubmitEditing={handleSubmit}
           />
 
@@ -79,14 +107,14 @@ export default function LoginScreen({ navigation }: Props) {
             onPress={handleSubmit}
             disabled={loading}
           >
-            <Text style={styles.btnText}>{loading ? 'Вход...' : 'Войти'}</Text>
+            <Text style={styles.btnText}>{loading ? 'Регистрация...' : 'Зарегистрироваться'}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.linkBtn}
-            onPress={() => navigation.navigate('Register')}
+            onPress={() => navigation.navigate('Login')}
           >
-            <Text style={styles.linkText}>Нет аккаунта? <Text style={styles.linkHighlight}>Зарегистрироваться</Text></Text>
+            <Text style={styles.linkText}>Уже есть аккаунт? <Text style={styles.linkHighlight}>Войти</Text></Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -132,6 +160,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     textAlign: 'center',
   },
+  label: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 4,
+  },
   input: {
     borderWidth: 1,
     borderColor: '#d1d5db',
@@ -139,7 +173,7 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 15,
     color: '#111827',
-    marginBottom: 12,
+    marginBottom: 14,
     backgroundColor: '#f9fafb',
   },
   btnPrimary: {

@@ -27,9 +27,10 @@ model User {
   email     String   @unique
   password  String
   name      String?
-  role      Role     @default(CUSTOMER)
-  isBlocked Boolean  @default(false)
-  createdAt DateTime @default(now())
+  role         Role     @default(CUSTOMER)
+  deliveryZone String?
+  isBlocked    Boolean  @default(false)
+  createdAt    DateTime @default(now())
 
   business      Business?
   // Orders placed by this user as a customer
