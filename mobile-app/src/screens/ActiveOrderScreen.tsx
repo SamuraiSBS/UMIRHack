@@ -34,9 +34,14 @@ interface Order {
   status: string;
   address: string;
   totalPrice: number;
+  createdAt: string;
   items: OrderItem[];
   business: { name: string };
   customer?: { name?: string; email: string };
+}
+
+function isToday(dateStr: string): boolean {
+  return new Date(dateStr).toDateString() === new Date().toDateString();
 }
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ActiveOrder'>;
@@ -53,7 +58,7 @@ export default function ActiveOrderScreen({ navigation }: Props) {
       const active = r.data.find(
         (o: Order) => o.status === 'ACCEPTED' || o.status === 'DELIVERING'
       );
-      const done = r.data.filter((o: Order) => o.status === 'DONE');
+      const done = r.data.filter((o: Order) => o.status === 'DONE' && isToday(o.createdAt));
       setOrder(active || null);
       setHistory(done);
     });
@@ -75,6 +80,10 @@ export default function ActiveOrderScreen({ navigation }: Props) {
     setError('');
     try {
       await api.patch(`/orders/${order.id}/status`, { status: next.status });
+      if (next.status === 'DONE') {
+        navigation.replace('ShiftControl');
+        return;
+      }
       await load();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Ошибка обновления статуса');

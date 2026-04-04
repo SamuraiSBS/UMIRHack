@@ -30,15 +30,17 @@ type Props = NativeStackScreenProps<RootStackParamList, 'AvailableOrders'>;
 
 export default function AvailableOrdersScreen({ navigation }: Props) {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [shiftActive, setShiftActive] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [accepting, setAccepting] = useState<string | null>(null);
   const [error, setError] = useState('');
 
   const load = useCallback(() => {
-    return api.get('/orders/available')
-      .then((r) => setOrders(r.data))
-      .catch((err) => setError(err.response?.data?.error || 'Ошибка загрузки'));
+    return Promise.all([
+      api.get('/orders/available').then((r) => setOrders(r.data)),
+      api.get('/courier/shift').then((r) => setShiftActive(r.data.isActive ?? false)),
+    ]).catch((err) => setError(err.response?.data?.error || 'Ошибка загрузки'));
   }, []);
 
   // Auto-refresh every 8s, only while screen is focused
@@ -83,6 +85,12 @@ export default function AvailableOrdersScreen({ navigation }: Props) {
     <View style={styles.container}>
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
+      {!shiftActive && (
+        <View style={styles.shiftBanner}>
+          <Text style={styles.shiftBannerText}>⚠️ Смена не активна — принятие заказов недоступно</Text>
+        </View>
+      )}
+
       <FlatList
         data={orders}
         keyExtractor={(item) => item.id}
@@ -126,8 +134,8 @@ export default function AvailableOrdersScreen({ navigation }: Props) {
                 <View style={styles.cardRight}>
                   <Text style={styles.price}>{order.totalPrice.toFixed(0)} ₽</Text>
                   <TouchableOpacity
-                    style={[styles.btnPrimary, accepting === order.id && styles.btnDisabled]}
-                    disabled={accepting === order.id}
+                    style={[styles.btnPrimary, (!shiftActive || accepting === order.id) && styles.btnDisabled]}
+                    disabled={!shiftActive || accepting === order.id}
                     onPress={() => handleAccept(order.id)}
                   >
                     <Text style={styles.btnText}>
@@ -164,6 +172,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     padding: 12,
     textAlign: 'center',
+  },
+  shiftBanner: {
+    backgroundColor: '#fef3c7',
+    borderBottomWidth: 1,
+    borderBottomColor: '#fcd34d',
+    padding: 12,
+  },
+  shiftBannerText: {
+    color: '#92400e',
+    fontSize: 13,
+    textAlign: 'center',
+    fontWeight: '600',
   },
   card: {
     backgroundColor: '#fff',
