@@ -60,7 +60,7 @@ export default function BusinessList() {
   );
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px 24px 80px' }}>
+    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: 'clamp(12px, 4vw, 24px) clamp(12px, 4vw, 24px) 80px' }}>
       {/* Search bar */}
       <div style={{ position: 'relative', marginBottom: '28px' }}>
         <span style={{

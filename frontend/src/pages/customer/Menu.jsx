@@ -28,9 +28,12 @@ function ProductModal({ product, qty, onClose, onAdd, onChangeQty }) {
           borderRadius: '20px',
           overflow: 'hidden',
           display: 'flex',
+          flexDirection: 'column',
           maxWidth: '640px',
           width: '100%',
           position: 'relative',
+          maxHeight: '90vh',
+          overflowY: 'auto',
         }}
       >
         {/* Close button */}
@@ -47,8 +50,8 @@ function ProductModal({ product, qty, onClose, onAdd, onChangeQty }) {
 
         {/* Image */}
         <div style={{
-          width: '260px',
-          minHeight: '260px',
+          width: '100%',
+          height: '200px',
           flexShrink: 0,
           background: '#2A2A2A',
           display: 'flex',
@@ -226,7 +229,7 @@ export default function Menu() {
   const deliveryCost = distanceKm ? Math.max(50, Math.round(50 + Number(distanceKm) * 15)) : 0;
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px 24px 120px' }}>
+    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: 'clamp(12px, 4vw, 24px) clamp(12px, 4vw, 24px) 120px' }}>
       {/* Back button */}
       <button
         onClick={() => navigate('/shops')}
@@ -347,20 +350,21 @@ export default function Menu() {
       {/* Floating cart button */}
       {cartCount > 0 && !showOrderForm && (
         <div style={{
-          position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)',
-          zIndex: 200,
+          position: 'fixed', bottom: '16px', left: '50%', transform: 'translateX(-50%)',
+          zIndex: 200, width: 'calc(100% - 32px)', maxWidth: '480px',
         }}>
           <button
             onClick={() => setShowOrderForm(true)}
             style={{
               background: '#FFD600', color: '#1C1C1C',
               border: 'none', borderRadius: '16px',
-              padding: '16px 32px',
+              padding: '16px 24px',
               fontSize: '16px', fontWeight: 700,
               cursor: 'pointer',
               boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-              display: 'flex', alignItems: 'center', gap: '12px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px',
               whiteSpace: 'nowrap',
+              width: '100%',
             }}
           >
             <span style={{
