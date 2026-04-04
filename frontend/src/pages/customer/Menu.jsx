@@ -62,7 +62,7 @@ function ProductModal({ product, qty, onClose, onAdd, onChangeQty }) {
             <img
               src={product.imageUrl}
               alt={product.name}
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
               onError={e => { e.target.style.display = 'none'; }}
             />
           ) : (
@@ -303,20 +303,20 @@ export default function Menu() {
                 key={p.id}
                 onClick={() => setModalProduct(p)}
                 style={{
-                  background: '#FFFFFF',
+                  background: '#2A2A2A',
                   borderRadius: '16px',
                   overflow: 'hidden',
                   cursor: 'pointer',
                   position: 'relative',
-                  transition: 'transform 0.15s',
+                  transition: 'transform 0.15s, box-shadow 0.15s',
                 }}
-                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
-                onMouseLeave={e => e.currentTarget.style.transform = ''}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.5)'; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}
               >
                 {/* Product image area */}
                 <div style={{
                   height: '160px',
-                  background: '#F5F5F5',
+                  background: '#1C1C1C',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -342,8 +342,8 @@ export default function Menu() {
                     style={{
                       position: 'absolute', bottom: '10px', right: '10px',
                       width: '34px', height: '34px', borderRadius: '50%',
-                      background: '#FFFFFF',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                      background: '#FFD600',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
                       border: 'none', fontSize: '22px', color: '#1C1C1C',
                       cursor: 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -365,10 +365,10 @@ export default function Menu() {
 
                 {/* Product info */}
                 <div style={{ padding: '10px 12px 12px' }}>
-                  <p style={{ fontWeight: 700, fontSize: '13px', color: '#1C1C1C', marginBottom: '2px', lineHeight: 1.3 }}>{p.price} ₽</p>
-                  <p style={{ fontSize: '12px', color: '#1C1C1C', lineHeight: 1.3, marginBottom: '1px' }}>{p.name}</p>
+                  <p style={{ fontWeight: 700, fontSize: '13px', color: '#FFFFFF', marginBottom: '2px', lineHeight: 1.3 }}>{p.price} ₽</p>
+                  <p style={{ fontSize: '12px', color: '#CCCCCC', lineHeight: 1.3, marginBottom: '1px' }}>{p.name}</p>
                   {p.description && (
-                    <p style={{ fontSize: '11px', color: '#9E9E9E', lineHeight: 1.3 }}>{p.description.slice(0, 50)}{p.description.length > 50 ? '…' : ''}</p>
+                    <p style={{ fontSize: '11px', color: '#6B6B6B', lineHeight: 1.3 }}>{p.description.slice(0, 50)}{p.description.length > 50 ? '…' : ''}</p>
                   )}
                 </div>
               </div>
