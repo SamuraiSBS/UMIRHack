@@ -70,6 +70,7 @@ export default function Navbar() {
             <Link to="/business" style={styles.link}>Заказы</Link>
             <Link to="/business/products" style={styles.link}>Меню</Link>
             <Link to="/business/settings" style={styles.link}>Настройки</Link>
+            <Link to="/business/stats" style={styles.link}>Аналитика</Link>
           </>
         )}
 

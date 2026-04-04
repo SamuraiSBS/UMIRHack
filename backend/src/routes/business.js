@@ -243,4 +243,69 @@ router.get('/business/my/orders', verifyToken, requireRole('BUSINESS'), async (r
   }
 });
 
+// POST /api/business/my/orders/:id/reject — reject order (BUSINESS only, only CREATED orders)
+router.post('/business/my/orders/:id/reject', verifyToken, requireRole('BUSINESS'), async (req, res) => {
+  try {
+    const business = await prisma.business.findUnique({ where: { ownerId: req.user.id } });
+    if (!business) return res.status(404).json({ error: 'No business found' });
+
+    const updated = await prisma.order.updateMany({
+      where: { id: req.params.id, businessId: business.id, status: 'CREATED' },
+      data: { status: 'REJECTED' },
+    });
+    if (updated.count === 0) return res.status(400).json({ error: 'Cannot reject this order' });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to reject order' });
+  }
+});
+
+// GET /api/business/my/stats — analytics for business owner
+router.get('/business/my/stats', verifyToken, requireRole('BUSINESS'), async (req, res) => {
+  try {
+    const business = await prisma.business.findUnique({ where: { ownerId: req.user.id } });
+    if (!business) return res.status(404).json({ error: 'No business found' });
+
+    const [totalOrders, doneOrders, revenueAgg, byStatus, topItems] = await Promise.all([
+      prisma.order.count({ where: { businessId: business.id } }),
+      prisma.order.count({ where: { businessId: business.id, status: 'DONE' } }),
+      prisma.order.aggregate({
+        where: { businessId: business.id, status: 'DONE' },
+        _sum: { totalPrice: true },
+        _avg: { totalPrice: true },
+      }),
+      prisma.order.groupBy({
+        by: ['status'],
+        where: { businessId: business.id },
+        _count: { _all: true },
+      }),
+      prisma.orderItem.groupBy({
+        by: ['productId'],
+        where: { order: { businessId: business.id } },
+        _sum: { quantity: true },
+        orderBy: { _sum: { quantity: 'desc' } },
+        take: 5,
+      }),
+    ]);
+
+    const productIds = topItems.map(i => i.productId);
+    const products = await prisma.product.findMany({ where: { id: { in: productIds } } });
+    const productMap = Object.fromEntries(products.map(p => [p.id, p.name]));
+
+    res.json({
+      totalOrders,
+      doneOrders,
+      revenue: revenueAgg._sum.totalPrice || 0,
+      avgCheck: revenueAgg._avg.totalPrice || 0,
+      byStatus: Object.fromEntries(byStatus.map(s => [s.status, s._count._all])),
+      topProducts: topItems.map(i => ({
+        name: productMap[i.productId] || i.productId,
+        quantity: i._sum.quantity,
+      })),
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch stats' });
+  }
+});
+
 module.exports = router;
