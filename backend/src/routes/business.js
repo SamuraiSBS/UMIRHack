@@ -117,6 +117,28 @@ router.post('/business/my/trading-points', verifyToken, requireRole('BUSINESS'),
   }
 });
 
+// PATCH /api/business/my/trading-points/:id — update trading point
+router.patch('/business/my/trading-points/:id', verifyToken, requireRole('BUSINESS'), async (req, res) => {
+  const { name, address } = req.body;
+  if (!name && !address) return res.status(400).json({ error: 'Name or address required' });
+
+  try {
+    const business = await prisma.business.findUnique({ where: { ownerId: req.user.id } });
+    if (!business) return res.status(404).json({ error: 'No business found' });
+
+    const point = await prisma.tradingPoint.findUnique({ where: { id: req.params.id } });
+    if (!point || point.businessId !== business.id) return res.status(404).json({ error: 'Trading point not found' });
+
+    const updated = await prisma.tradingPoint.update({
+      where: { id: req.params.id },
+      data: { ...(name && { name }), ...(address && { address }) },
+    });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update trading point' });
+  }
+});
+
 // DELETE /api/business/my/trading-points/:id — remove trading point
 router.delete('/business/my/trading-points/:id', verifyToken, requireRole('BUSINESS'), async (req, res) => {
   try {
