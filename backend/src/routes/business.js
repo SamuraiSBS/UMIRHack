@@ -143,6 +143,22 @@ router.get('/business/:id/trading-points', async (req, res) => {
   }
 });
 
+// GET /api/business/my/products — all products for the business owner (includes unavailable)
+router.get('/business/my/products', verifyToken, requireRole('BUSINESS'), async (req, res) => {
+  try {
+    const business = await prisma.business.findUnique({ where: { ownerId: req.user.id } });
+    if (!business) return res.status(404).json({ error: 'No business found' });
+
+    const products = await prisma.product.findMany({
+      where: { businessId: business.id },
+      orderBy: { name: 'asc' },
+    });
+    res.json(products);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch products' });
+  }
+});
+
 // GET /api/business/:id/products — list products for a business (public)
 router.get('/business/:id/products', async (req, res) => {
   try {
@@ -260,7 +276,7 @@ router.get('/business/my/stats', verifyToken, requireRole('BUSINESS'), async (re
     const business = await prisma.business.findUnique({ where: { ownerId: req.user.id } });
     if (!business) return res.status(404).json({ error: 'No business found' });
 
-    const [totalOrders, doneOrders, revenueAgg, byStatus, topItems] = await Promise.all([
+    const [totalOrders, doneOrders, revenueAgg, byStatus, businessOrderIds] = await Promise.all([
       prisma.order.count({ where: { businessId: business.id } }),
       prisma.order.count({ where: { businessId: business.id, status: 'DONE' } }),
       prisma.order.aggregate({
@@ -273,14 +289,20 @@ router.get('/business/my/stats', verifyToken, requireRole('BUSINESS'), async (re
         where: { businessId: business.id },
         _count: { _all: true },
       }),
-      prisma.orderItem.groupBy({
-        by: ['productId'],
-        where: { order: { businessId: business.id } },
-        _sum: { quantity: true },
-        orderBy: { _sum: { quantity: 'desc' } },
-        take: 5,
+      prisma.order.findMany({
+        where: { businessId: business.id },
+        select: { id: true },
       }),
     ]);
+
+    const orderIds = businessOrderIds.map(o => o.id);
+    const topItems = await prisma.orderItem.groupBy({
+      by: ['productId'],
+      where: { orderId: { in: orderIds } },
+      _sum: { quantity: true },
+      orderBy: { _sum: { quantity: 'desc' } },
+      take: 5,
+    });
 
     const productIds = topItems.map(i => i.productId);
     const products = await prisma.product.findMany({ where: { id: { in: productIds } } });
