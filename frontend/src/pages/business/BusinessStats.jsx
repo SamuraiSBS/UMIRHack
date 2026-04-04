@@ -22,14 +22,14 @@ export default function BusinessStats() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '12px', marginBottom: '24px' }}>
         {[
-          { label: 'Всего заказов', value: stats.totalOrders, color: '#dbeafe' },
-          { label: 'Выполнено', value: stats.doneOrders, color: '#d1fae5' },
-          { label: 'Выручка', value: `${stats.revenue.toFixed(0)} ₽`, color: '#fef3c7' },
-          { label: 'Средний чек', value: `${stats.avgCheck.toFixed(0)} ₽`, color: '#f3f4f6' },
+          { label: 'Всего заказов', value: stats.totalOrders, color: '#1e3a5f' },
+          { label: 'Выполнено', value: stats.doneOrders, color: '#052e16' },
+          { label: 'Выручка', value: `${stats.revenue.toFixed(0)} ₽`, color: '#3b2800' },
+          { label: 'Средний чек', value: `${stats.avgCheck.toFixed(0)} ₽`, color: '#1f2937' },
         ].map(({ label, value, color }) => (
           <div key={label} className="card" style={{ background: color, textAlign: 'center', padding: '16px' }}>
-            <p style={{ fontSize: '26px', fontWeight: 700 }}>{value}</p>
-            <p style={{ fontSize: '12px', color: '#374151', marginTop: '4px' }}>{label}</p>
+            <p style={{ fontSize: '26px', fontWeight: 700, color: '#ffffff' }}>{value}</p>
+            <p style={{ fontSize: '12px', color: '#9ca3af', marginTop: '4px' }}>{label}</p>
           </div>
         ))}
       </div>
@@ -46,15 +46,6 @@ export default function BusinessStats() {
         </div>
       )}
 
-      <div className="card">
-        <h2 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '14px' }}>Заказы по статусам</h2>
-        {Object.entries(stats.byStatus).map(([status, count]) => (
-          <div key={status} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}>
-            <span style={{ fontSize: '14px', color: '#6b7280' }}>{status}</span>
-            <span style={{ fontSize: '14px', fontWeight: 600 }}>{count}</span>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }

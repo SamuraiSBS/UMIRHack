@@ -225,6 +225,7 @@ router.delete('/products/:id', verifyToken, requireRole('BUSINESS'), async (req,
     const product = await prisma.product.findUnique({ where: { id: req.params.id } });
     if (!product || product.businessId !== business.id) return res.status(404).json({ error: 'Product not found' });
 
+    await prisma.orderItem.deleteMany({ where: { productId: req.params.id } });
     await prisma.product.delete({ where: { id: req.params.id } });
     res.json({ ok: true });
   } catch (err) {
