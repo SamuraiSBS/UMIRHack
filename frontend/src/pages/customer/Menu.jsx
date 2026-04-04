@@ -141,7 +141,10 @@ export default function Menu() {
   const [business, setBusiness] = useState(null);
   const [products, setProducts] = useState([]);
   const [tradingPoints, setTradingPoints] = useState([]);
-  const [cart, setCart] = useState({});
+  const [cart, setCart] = useState({}); // { productId: quantity }
+  const [savedAddresses, setSavedAddresses] = useState([]);
+  const [saveAddress, setSaveAddress] = useState(false);
+  const [newAddressLabel, setNewAddressLabel] = useState('');
   const [address, setAddress] = useState('');
   const [tradingPointId, setTradingPointId] = useState('');
   const [distanceKm, setDistanceKm] = useState('');
@@ -153,19 +156,52 @@ export default function Menu() {
   const [showOrderForm, setShowOrderForm] = useState(false);
 
   useEffect(() => {
+    try {
+      const savedCart = localStorage.getItem(`cart_${id}`);
+      setCart(savedCart ? JSON.parse(savedCart) : {});
+    } catch {
+      setCart({});
+    }
+  }, [id]);
+
+  useEffect(() => {
     localStorage.setItem(`cart_${id}`, JSON.stringify(cart));
   }, [cart, id]);
 
   useEffect(() => {
-    Promise.all([
-      api.get(`/business/${id}`).then(r => r.data),
-      api.get(`/business/${id}/products`).then(r => r.data),
-      api.get(`/business/${id}/trading-points`).then(r => r.data).catch(() => []),
-    ]).then(([biz, prods, points]) => {
-      setBusiness(biz);
-      setProducts(prods);
-      setTradingPoints(points);
-    }).finally(() => setLoading(false));
+    let isMounted = true;
+
+    async function loadMenu() {
+      setLoading(true);
+      setError('');
+
+      try {
+        const [biz, prods, points, addresses] = await Promise.all([
+          api.get(`/business/${id}`).then(r => r.data),
+          api.get(`/business/${id}/products`).then(r => r.data),
+          api.get(`/business/${id}/trading-points`).then(r => r.data).catch(() => []),
+          api.get('/addresses').then(r => r.data).catch(() => []),
+        ]);
+
+        if (!isMounted) return;
+
+        setBusiness(biz);
+        setProducts(prods);
+        setTradingPoints(points);
+        setSavedAddresses(addresses);
+      } catch (err) {
+        if (!isMounted) return;
+        setError(err.response?.data?.error || 'Не удалось загрузить меню');
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+
+    loadMenu();
+
+    return () => {
+      isMounted = false;
+    };
   }, [id]);
 
   function changeQty(productId, delta) {
@@ -178,10 +214,12 @@ export default function Menu() {
     });
   }
 
-  const cartItems = Object.entries(cart).map(([productId, quantity]) => {
-    const product = products.find(p => p.id === productId);
-    return { productId, quantity, product };
-  }).filter(item => item.product);
+  const cartItems = Object.entries(cart)
+    .map(([productId, quantity]) => {
+      const product = products.find(p => p.id === productId);
+      return product ? { productId, quantity, product } : null;
+    })
+    .filter(Boolean);
 
   const total = cartItems.reduce((sum, { quantity, product }) => sum + product.price * quantity, 0);
   const cartCount = cartItems.reduce((sum, { quantity }) => sum + quantity, 0);
@@ -229,32 +267,24 @@ export default function Menu() {
   const deliveryCost = distanceKm ? Math.max(50, Math.round(50 + Number(distanceKm) * 15)) : 0;
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: 'clamp(12px, 4vw, 24px) clamp(12px, 4vw, 24px) 120px' }}>
-      {/* Back button */}
-      <button
-        onClick={() => navigate('/shops')}
-        style={{
-          background: 'transparent', border: 'none', color: '#9E9E9E',
-          fontSize: '14px', cursor: 'pointer', marginBottom: '20px',
-          display: 'flex', alignItems: 'center', gap: '6px', padding: 0,
-        }}
-      >← Назад к ресторанам</button>
+    <div className="page">
+      <button onClick={() => navigate('/shops')} className="btn-outline" style={{ marginBottom: '16px', fontSize: '13px' }}>
+        ← Назад
+      </button>
 
-      {/* Business header */}
-      <div style={{ marginBottom: '32px' }}>
-        <h1 style={{ fontSize: '28px', fontWeight: 800, color: '#FFFFFF', marginBottom: '6px' }}>
-          {business?.name || 'Меню'}
-        </h1>
-        {business?.description && (
-          <p style={{ color: '#9E9E9E', fontSize: '14px', marginBottom: '4px' }}>{business.description}</p>
-        )}
-        {business?.deliveryZone && (
-          <p style={{ color: '#6B6B6B', fontSize: '13px' }}>📍 {business.deliveryZone}</p>
-        )}
-      </div>
-
-      {products.length === 0 && (
-        <p style={{ color: '#9E9E9E', textAlign: 'center', marginTop: '60px' }}>Меню пока пусто.</p>
+      <h1 className="page-title">{business?.name || 'Меню'}</h1>
+      {error && <div className="error-msg" style={{ marginBottom: '16px' }}>{error}</div>}
+      {business?.description && <p className="text-gray text-sm" style={{ marginBottom: '8px' }}>{business.description}</p>}
+      {business?.deliveryZone && (
+        <p className="text-sm text-gray" style={{ marginBottom: '4px' }}>Зона доставки: {business.deliveryZone}</p>
+      )}
+      {tradingPoints.length > 0 && (
+        <div style={{ marginBottom: '16px' }}>
+          <p className="text-sm" style={{ fontWeight: 600, marginBottom: '4px' }}>Адреса:</p>
+          {tradingPoints.map(tp => (
+            <p key={tp.id} className="text-sm text-gray">📍 {tp.name}: {tp.address}</p>
+          ))}
+        </div>
       )}
 
       {/* Products by category */}
