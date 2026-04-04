@@ -65,6 +65,7 @@ model Product {
   name        String
   description String?
   price       Float
+  imageUrl    String?
   businessId  String
   business    Business    @relation(fields: [businessId], references: [id])
   orderItems  OrderItem[]

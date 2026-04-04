@@ -10,6 +10,9 @@ export default function BusinessSettings() {
   const [saving, setSaving] = useState(false);
   const [addingPoint, setAddingPoint] = useState(false);
   const [deletingPoint, setDeletingPoint] = useState(null);
+  const [editingPointId, setEditingPointId] = useState(null);
+  const [editPointForm, setEditPointForm] = useState({ name: '', address: '' });
+  const [editingPointSaving, setEditingPointSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -79,6 +82,33 @@ export default function BusinessSettings() {
     }
   }
 
+  function startEditPoint(point) {
+    setEditingPointId(point.id);
+    setEditPointForm({ name: point.name, address: point.address });
+    setError('');
+  }
+
+  function cancelEditPoint() {
+    setEditingPointId(null);
+    setEditPointForm({ name: '', address: '' });
+  }
+
+  async function handleEditPoint(id) {
+    if (!editPointForm.name || !editPointForm.address) { setError('Название и адрес обязательны'); return; }
+    setError('');
+    setEditingPointSaving(true);
+    try {
+      const res = await api.patch(`/business/my/trading-points/${id}`, editPointForm);
+      setPoints(prev => prev.map(p => p.id === id ? res.data : p));
+      setEditingPointId(null);
+      setSuccess('Точка обновлена!');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Ошибка обновления');
+    } finally {
+      setEditingPointSaving(false);
+    }
+  }
+
   if (loading) return <div className="page"><p>Загрузка...</p></div>;
 
   return (
@@ -126,19 +156,40 @@ export default function BusinessSettings() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
           {points.map(p => (
-            <div key={p.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px' }}>
-              <div>
-                <p style={{ fontWeight: 600, fontSize: '14px' }}>{p.name}</p>
-                <p className="text-sm text-gray">{p.address}</p>
-              </div>
-              <button
-                onClick={() => handleDeletePoint(p.id)}
-                disabled={deletingPoint === p.id}
-                className="btn-danger"
-                style={{ padding: '4px 10px', fontSize: '12px', flexShrink: 0, marginLeft: '12px' }}
-              >
-                {deletingPoint === p.id ? '...' : 'Удалить'}
-              </button>
+            <div key={p.id} className="card" style={{ padding: '12px' }}>
+              {editingPointId === p.id ? (
+                <div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label>Название</label>
+                      <input value={editPointForm.name} onChange={e => setEditPointForm(f => ({ ...f, name: e.target.value }))} />
+                    </div>
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label>Адрес</label>
+                      <input value={editPointForm.address} onChange={e => setEditPointForm(f => ({ ...f, address: e.target.value }))} />
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button onClick={() => handleEditPoint(p.id)} disabled={editingPointSaving} className="btn-success" style={{ padding: '4px 10px', fontSize: '12px' }}>
+                      {editingPointSaving ? '...' : 'Сохранить'}
+                    </button>
+                    <button onClick={cancelEditPoint} className="btn-outline" style={{ padding: '4px 10px', fontSize: '12px' }}>Отмена</button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <p style={{ fontWeight: 600, fontSize: '14px' }}>{p.name}</p>
+                    <p className="text-sm text-gray">{p.address}</p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px', flexShrink: 0, marginLeft: '12px' }}>
+                    <button onClick={() => startEditPoint(p)} className="btn-outline" style={{ padding: '4px 10px', fontSize: '12px' }}>Изменить</button>
+                    <button onClick={() => handleDeletePoint(p.id)} disabled={deletingPoint === p.id} className="btn-danger" style={{ padding: '4px 10px', fontSize: '12px' }}>
+                      {deletingPoint === p.id ? '...' : 'Удалить'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>

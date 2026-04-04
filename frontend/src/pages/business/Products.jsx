@@ -5,11 +5,11 @@ export default function Products() {
   const [business, setBusiness] = useState(null);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({ name: '', description: '', price: '' });
+  const [form, setForm] = useState({ name: '', description: '', price: '', imageUrl: '' });
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(null);
   const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState({ name: '', description: '', price: '' });
+  const [editForm, setEditForm] = useState({ name: '', description: '', price: '', imageUrl: '' });
   const [editSaving, setEditSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -38,8 +38,8 @@ export default function Products() {
     setSuccess('');
     setSaving(true);
     try {
-      await api.post('/products', { name: form.name, description: form.description, price: parseFloat(form.price) });
-      setForm({ name: '', description: '', price: '' });
+      await api.post('/products', { name: form.name, description: form.description, price: parseFloat(form.price), imageUrl: form.imageUrl || null });
+      setForm({ name: '', description: '', price: '', imageUrl: '' });
       setSuccess('Позиция добавлена!');
       await loadProducts(business.id);
     } catch (err) {
@@ -51,13 +51,13 @@ export default function Products() {
 
   function startEdit(product) {
     setEditingId(product.id);
-    setEditForm({ name: product.name, description: product.description || '', price: String(product.price) });
+    setEditForm({ name: product.name, description: product.description || '', price: String(product.price), imageUrl: product.imageUrl || '' });
     setError('');
   }
 
   function cancelEdit() {
     setEditingId(null);
-    setEditForm({ name: '', description: '', price: '' });
+    setEditForm({ name: '', description: '', price: '', imageUrl: '' });
   }
 
   async function handleEdit(productId) {
@@ -69,6 +69,7 @@ export default function Products() {
         name: editForm.name,
         description: editForm.description,
         price: parseFloat(editForm.price),
+        imageUrl: editForm.imageUrl || null,
       });
       setProducts(prev => prev.map(p => p.id === productId ? res.data : p));
       setEditingId(null);
@@ -125,6 +126,10 @@ export default function Products() {
             <label>Описание</label>
             <input value={form.description} onChange={set('description')} placeholder="Томат, моцарелла, базилик" />
           </div>
+          <div className="form-group" style={{ marginTop: '12px' }}>
+            <label>Фото (URL изображения)</label>
+            <input value={form.imageUrl} onChange={set('imageUrl')} placeholder="https://example.com/photo.jpg" />
+          </div>
           <button type="submit" className="btn-primary" disabled={saving} style={{ marginTop: '4px' }}>
             {saving ? 'Сохраняем...' : '+ Добавить'}
           </button>
@@ -162,6 +167,10 @@ export default function Products() {
                   <label>Описание</label>
                   <input value={editForm.description} onChange={setEdit('description')} />
                 </div>
+                <div className="form-group">
+                  <label>Фото (URL)</label>
+                  <input value={editForm.imageUrl} onChange={setEdit('imageUrl')} placeholder="https://..." />
+                </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button
                     onClick={() => handleEdit(p.id)}
@@ -179,6 +188,14 @@ export default function Products() {
             ) : (
               /* Normal view */
               <>
+                {p.imageUrl && (
+                  <img
+                    src={p.imageUrl}
+                    alt={p.name}
+                    style={{ width: '100%', height: '140px', objectFit: 'cover', borderRadius: '8px', marginBottom: '8px' }}
+                    onError={e => { e.target.style.display = 'none'; }}
+                  />
+                )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <h3 style={{ fontSize: '15px', fontWeight: 600 }}>{p.name}</h3>
                   <div style={{ display: 'flex', gap: '6px', flexShrink: 0, marginLeft: '8px' }}>

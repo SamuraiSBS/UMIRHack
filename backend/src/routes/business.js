@@ -114,6 +114,29 @@ router.delete('/business/my/trading-points/:id', verifyToken, requireRole('BUSIN
   }
 });
 
+// PATCH /api/business/my/trading-points/:id — update trading point
+router.patch('/business/my/trading-points/:id', verifyToken, requireRole('BUSINESS'), async (req, res) => {
+  const { name, address } = req.body;
+  if (!name || !address) return res.status(400).json({ error: 'Name and address are required' });
+  try {
+    const business = await prisma.business.findUnique({ where: { ownerId: req.user.id } });
+    if (!business) return res.status(404).json({ error: 'No business found' });
+
+    const point = await prisma.tradingPoint.findFirst({
+      where: { id: req.params.id, businessId: business.id },
+    });
+    if (!point) return res.status(404).json({ error: 'Trading point not found' });
+
+    const updated = await prisma.tradingPoint.update({
+      where: { id: req.params.id },
+      data: { name, address },
+    });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update trading point' });
+  }
+});
+
 // GET /api/business/:id/products — list products for a business (public)
 router.get('/business/:id/products', async (req, res) => {
   try {
@@ -128,7 +151,7 @@ router.get('/business/:id/products', async (req, res) => {
 
 // POST /api/products — create a product (must own a business)
 router.post('/products', verifyToken, requireRole('BUSINESS'), async (req, res) => {
-  const { name, description, price } = req.body;
+  const { name, description, price, imageUrl } = req.body;
   if (!name || price == null) return res.status(400).json({ error: 'Name and price are required' });
 
   try {
@@ -136,7 +159,7 @@ router.post('/products', verifyToken, requireRole('BUSINESS'), async (req, res) 
     if (!business) return res.status(404).json({ error: 'Create a business first' });
 
     const product = await prisma.product.create({
-      data: { name, description, price: Number(price), businessId: business.id },
+      data: { name, description, price: Number(price), imageUrl: imageUrl || null, businessId: business.id },
     });
     res.status(201).json(product);
   } catch (err) {
@@ -146,7 +169,7 @@ router.post('/products', verifyToken, requireRole('BUSINESS'), async (req, res) 
 
 // PATCH /api/products/:id — update a product
 router.patch('/products/:id', verifyToken, requireRole('BUSINESS'), async (req, res) => {
-  const { name, description, price } = req.body;
+  const { name, description, price, imageUrl } = req.body;
   try {
     const business = await prisma.business.findUnique({ where: { ownerId: req.user.id } });
     if (!business) return res.status(404).json({ error: 'Business not found' });
@@ -160,6 +183,7 @@ router.patch('/products/:id', verifyToken, requireRole('BUSINESS'), async (req, 
         ...(name && { name }),
         ...(description !== undefined && { description }),
         ...(price != null && { price: Number(price) }),
+        ...(imageUrl !== undefined && { imageUrl }),
       },
     });
     res.json(updated);
