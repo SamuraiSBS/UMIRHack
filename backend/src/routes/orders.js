@@ -52,8 +52,8 @@ router.post('/', verifyToken, requireRole('CUSTOMER'), async (req, res) => {
 
     res.status(201).json(order);
   } catch (err) {
-    console.error('Order create error:', err);
-    res.status(500).json({ error: 'Failed to create order', detail: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Failed to create order' });
   }
 });
 
