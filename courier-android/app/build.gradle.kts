@@ -1,15 +1,18 @@
-plugins {
-    id("com.android.application")
-    id("org.jetbrains.kotlin.android")
-    id("org.jetbrains.kotlin.plugin.compose")
-}
+import java.util.Properties
 
-val localProperties = java.util.Properties().apply {
+        plugins {
+            id("com.android.application")
+            id("org.jetbrains.kotlin.android")
+            id("org.jetbrains.kotlin.plugin.compose")
+        }
+
+val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
     if (file.exists()) {
-        file.inputStream().use(::load)
+        file.inputStream().use { load(it) }
     }
 }
+
 
 val courierApiBaseUrl = (
     project.findProperty("COURIER_API_BASE_URL") as String?
