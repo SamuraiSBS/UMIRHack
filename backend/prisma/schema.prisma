@@ -21,6 +21,7 @@ enum OrderStatus {
   DELIVERING
   DONE
   CANCELLED
+  REJECTED
 }
 
 model User {
@@ -33,12 +34,21 @@ model User {
   isBlocked    Boolean  @default(false)
   createdAt    DateTime @default(now())
 
-  business      Business?
+  business          Business?
   // Orders placed by this user as a customer
-  customerOrders Order[]      @relation("CustomerOrders")
+  customerOrders    Order[]           @relation("CustomerOrders")
   // Orders assigned to this user as a courier
-  courierOrders  Order[]      @relation("CourierOrders")
-  shift          CourierShift?
+  courierOrders     Order[]           @relation("CourierOrders")
+  shift             CourierShift?
+  deliveryAddresses DeliveryAddress[]
+}
+
+model DeliveryAddress {
+  id         String @id @default(cuid())
+  label      String
+  address    String
+  customerId String
+  customer   User   @relation(fields: [customerId], references: [id])
 }
 
 model Business {
@@ -68,6 +78,9 @@ model Product {
   name        String
   description String?
   price       Float
+  imageUrl    String?
+  isAvailable Boolean     @default(true)
+  category    String?
   businessId  String
   business    Business    @relation(fields: [businessId], references: [id])
   orderItems  OrderItem[]

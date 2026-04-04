@@ -49,3 +49,19 @@ backend/src/generated/
 
 .gradle/
 .gradle/
+# Gradle files
+.gradle/
+build/
+
+# Android Studio / IntelliJ IDEA files
+.idea/
+*.iml
+local.properties
+
+# Captures and logs
+captures/
+*.log
+**/.gradle/
+**/build/
+**/local.properties
+**/node_modules/

@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
@@ -53,7 +52,6 @@ private fun orderStatusLabel(status: String): String = when (status) {
 }
 
 private val supportedCities = listOf(
-    "Ростов-на-Дону",
     "Москва",
     "Санкт-Петербург",
     "Казань",
@@ -113,7 +111,7 @@ fun DashboardScreen(
                             .fillMaxWidth()
                             .menuAnchor(),
                     )
-                    DropdownMenu(
+                    ExposedDropdownMenu(
                         expanded = cityMenuExpanded,
                         onDismissRequest = { cityMenuExpanded = false },
                     ) {
@@ -212,7 +210,7 @@ fun DashboardScreen(
             item {
                 SectionCard {
                     MerchantBanner(
-                        title = order.business?.name ?: "Магазин не указан",
+                        title = order.business.name,
                         subtitle = order.tradingPoint?.let { "${it.name} • ${it.address}" } ?: "Активный маршрут по заказу",
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -242,7 +240,7 @@ fun DashboardScreen(
             items(courierState.completedToday, key = { it.id }) { order ->
                 SectionCard {
                     MerchantBanner(
-                        title = order.business?.name ?: "Магазин не указан",
+                        title = order.business.name,
                         subtitle = order.address.orEmpty(),
                     )
                     MetricRow(label = "Доход", value = money(order.deliveryFee))

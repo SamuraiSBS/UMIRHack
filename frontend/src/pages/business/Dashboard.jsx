@@ -8,6 +8,8 @@ const STATUS_LABELS = {
   ACCEPTED: ['badge-accepted', 'Курьер принял'],
   DELIVERING: ['badge-delivering', 'Доставляется'],
   DONE: ['badge-done', 'Выполнен'],
+  CANCELLED: ['badge-cancelled', 'Отменён'],
+  REJECTED: ['badge-danger', 'Отклонён'],
 };
 
 function StatusBadge({ status }) {
@@ -21,6 +23,7 @@ export default function Dashboard() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [needCreate, setNeedCreate] = useState(false);
+  const [filter, setFilter] = useState('ALL');
 
   // Business creation form state
   const [form, setForm] = useState({ name: '', description: '' });
@@ -36,6 +39,16 @@ export default function Dashboard() {
       .catch(err => {
         if (err.response?.status === 404) setNeedCreate(true);
       });
+  }
+
+  async function handleReject(orderId) {
+    if (!confirm('Отклонить этот заказ?')) return;
+    try {
+      await api.post(`/business/my/orders/${orderId}/reject`);
+      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'REJECTED' } : o));
+    } catch (err) {
+      alert(err.response?.data?.error || 'Ошибка отклонения');
+    }
   }
 
   useEffect(() => { loadAll().finally(() => setLoading(false)); }, []);
@@ -97,7 +110,10 @@ export default function Dashboard() {
     ACCEPTED: orders.filter(o => o.status === 'ACCEPTED').length,
     DELIVERING: orders.filter(o => o.status === 'DELIVERING').length,
     DONE: orders.filter(o => o.status === 'DONE').length,
+    REJECTED: orders.filter(o => o.status === 'REJECTED').length,
   };
+
+  const filteredOrders = filter === 'ALL' ? orders : orders.filter(o => o.status === filter);
 
   return (
     <div className="page">
@@ -108,33 +124,47 @@ export default function Dashboard() {
         </Link>
       </div>
 
-      {/* Stats row */}
+      {/* Stats row — clickable filters */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '10px', marginBottom: '24px' }}>
         {[
-          { label: 'Новые', count: counts.CREATED, color: '#dbeafe' },
-          { label: 'Приняты', count: counts.ACCEPTED, color: '#fef3c7' },
-          { label: 'В доставке', count: counts.DELIVERING, color: '#d1fae5' },
-          { label: 'Выполнены', count: counts.DONE, color: '#f3f4f6' },
-        ].map(({ label, count, color }) => (
-          <div key={label} className="card" style={{ background: color, textAlign: 'center', padding: '12px' }}>
-            <p style={{ fontSize: '28px', fontWeight: 700 }}>{count}</p>
-            <p style={{ fontSize: '12px', color: '#374151' }}>{label}</p>
+          { label: 'Все', count: orders.length, color: '#1f2937', status: 'ALL' },
+          { label: 'Новые', count: counts.CREATED, color: '#1e3a5f', status: 'CREATED' },
+          { label: 'Приняты', count: counts.ACCEPTED, color: '#3b2800', status: 'ACCEPTED' },
+          { label: 'В доставке', count: counts.DELIVERING, color: '#052e16', status: 'DELIVERING' },
+          { label: 'Выполнены', count: counts.DONE, color: '#1f2937', status: 'DONE' },
+          { label: 'Отклонены', count: counts.REJECTED, color: '#3b0a0a', status: 'REJECTED' },
+        ].map(({ label, count, color, status }) => (
+          <div
+            key={label}
+            className="card"
+            onClick={() => setFilter(status)}
+            style={{
+              background: color,
+              textAlign: 'center',
+              padding: '12px',
+              cursor: 'pointer',
+              outline: filter === status ? '2px solid #2563eb' : 'none',
+              transition: 'outline 0.1s',
+            }}
+          >
+            <p style={{ fontSize: '28px', fontWeight: 700, color: '#FFFFFF' }}>{count}</p>
+            <p style={{ fontSize: '12px', color: '#9E9E9E' }}>{label}</p>
           </div>
         ))}
       </div>
 
       <h2 style={{ fontSize: '17px', fontWeight: 700, marginBottom: '12px' }}>
-        Заказы ({orders.length})
+        Заказы ({filteredOrders.length}{filter !== 'ALL' ? ` из ${orders.length}` : ''})
       </h2>
 
-      {orders.length === 0 && (
+      {filteredOrders.length === 0 && (
         <div className="card" style={{ textAlign: 'center', padding: '32px' }}>
-          <p className="text-gray">Заказов пока нет.</p>
+          <p className="text-gray">{filter === 'ALL' ? 'Заказов пока нет.' : 'Нет заказов с таким статусом.'}</p>
         </div>
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        {orders.map(order => (
+        {filteredOrders.map(order => (
           <div key={order.id} className="card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px' }}>
               <div>
@@ -157,6 +187,18 @@ export default function Dashboard() {
               <p className="text-sm" style={{ marginTop: '2px' }}>
                 <strong>Курьер:</strong> {order.courier?.name || order.courier?.email}
               </p>
+            )}
+
+            {order.status === 'CREATED' && (
+              <div style={{ marginTop: '8px' }}>
+                <button
+                  onClick={() => handleReject(order.id)}
+                  className="btn-danger"
+                  style={{ fontSize: '12px', padding: '4px 12px' }}
+                >
+                  Отклонить заказ
+                </button>
+              </div>
             )}
 
             <div style={{ marginTop: '8px', borderTop: '1px solid #e5e7eb', paddingTop: '8px' }}>

@@ -46,6 +46,25 @@ router.get('/business/my', verifyToken, requireRole('BUSINESS'), async (req, res
   }
 });
 
+// GET /api/business/:id — get public business details
+router.get('/business/:id', async (req, res) => {
+  try {
+    const business = await prisma.business.findFirst({
+      where: { id: req.params.id, isBlocked: false },
+      include: {
+        tradingPoints: {
+          orderBy: { name: 'asc' },
+        },
+      },
+    });
+
+    if (!business) return res.status(404).json({ error: 'Business not found' });
+    res.json(business);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch business' });
+  }
+});
+
 // PATCH /api/business/my — update business info
 router.patch('/business/my', verifyToken, requireRole('BUSINESS'), async (req, res) => {
   const { name, description, deliveryZone } = req.body;
@@ -98,6 +117,28 @@ router.post('/business/my/trading-points', verifyToken, requireRole('BUSINESS'),
   }
 });
 
+// PATCH /api/business/my/trading-points/:id — update trading point
+router.patch('/business/my/trading-points/:id', verifyToken, requireRole('BUSINESS'), async (req, res) => {
+  const { name, address } = req.body;
+  if (!name && !address) return res.status(400).json({ error: 'Name or address required' });
+
+  try {
+    const business = await prisma.business.findUnique({ where: { ownerId: req.user.id } });
+    if (!business) return res.status(404).json({ error: 'No business found' });
+
+    const point = await prisma.tradingPoint.findUnique({ where: { id: req.params.id } });
+    if (!point || point.businessId !== business.id) return res.status(404).json({ error: 'Trading point not found' });
+
+    const updated = await prisma.tradingPoint.update({
+      where: { id: req.params.id },
+      data: { ...(name && { name }), ...(address && { address }) },
+    });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update trading point' });
+  }
+});
+
 // DELETE /api/business/my/trading-points/:id — remove trading point
 router.delete('/business/my/trading-points/:id', verifyToken, requireRole('BUSINESS'), async (req, res) => {
   try {
@@ -124,11 +165,27 @@ router.get('/business/:id/trading-points', async (req, res) => {
   }
 });
 
+// GET /api/business/my/products — all products for the business owner (includes unavailable)
+router.get('/business/my/products', verifyToken, requireRole('BUSINESS'), async (req, res) => {
+  try {
+    const business = await prisma.business.findUnique({ where: { ownerId: req.user.id } });
+    if (!business) return res.status(404).json({ error: 'No business found' });
+
+    const products = await prisma.product.findMany({
+      where: { businessId: business.id },
+      orderBy: { name: 'asc' },
+    });
+    res.json(products);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch products' });
+  }
+});
+
 // GET /api/business/:id/products — list products for a business (public)
 router.get('/business/:id/products', async (req, res) => {
   try {
     const products = await prisma.product.findMany({
-      where: { businessId: req.params.id },
+      where: { businessId: req.params.id, isAvailable: true },
     });
     res.json(products);
   } catch (err) {
@@ -138,7 +195,7 @@ router.get('/business/:id/products', async (req, res) => {
 
 // POST /api/products — create a product (must own a business)
 router.post('/products', verifyToken, requireRole('BUSINESS'), async (req, res) => {
-  const { name, description, price } = req.body;
+  const { name, description, price, imageUrl, category } = req.body;
   if (!name || price == null) return res.status(400).json({ error: 'Name and price are required' });
 
   try {
@@ -146,7 +203,7 @@ router.post('/products', verifyToken, requireRole('BUSINESS'), async (req, res) 
     if (!business) return res.status(404).json({ error: 'Create a business first' });
 
     const product = await prisma.product.create({
-      data: { name, description, price: Number(price), businessId: business.id },
+      data: { name, description, price: Number(price), imageUrl: imageUrl || null, category: category || null, businessId: business.id },
     });
     res.status(201).json(product);
   } catch (err) {
@@ -156,7 +213,7 @@ router.post('/products', verifyToken, requireRole('BUSINESS'), async (req, res) 
 
 // PATCH /api/products/:id — update a product
 router.patch('/products/:id', verifyToken, requireRole('BUSINESS'), async (req, res) => {
-  const { name, description, price } = req.body;
+  const { name, description, price, imageUrl, isAvailable, category } = req.body;
   try {
     const business = await prisma.business.findUnique({ where: { ownerId: req.user.id } });
     if (!business) return res.status(404).json({ error: 'Business not found' });
@@ -170,6 +227,9 @@ router.patch('/products/:id', verifyToken, requireRole('BUSINESS'), async (req, 
         ...(name && { name }),
         ...(description !== undefined && { description }),
         ...(price != null && { price: Number(price) }),
+        ...(imageUrl !== undefined && { imageUrl }),
+        ...(isAvailable !== undefined && { isAvailable: Boolean(isAvailable) }),
+        ...(category !== undefined && { category }),
       },
     });
     res.json(updated);
@@ -187,10 +247,12 @@ router.delete('/products/:id', verifyToken, requireRole('BUSINESS'), async (req,
     const product = await prisma.product.findUnique({ where: { id: req.params.id } });
     if (!product || product.businessId !== business.id) return res.status(404).json({ error: 'Product not found' });
 
+    await prisma.orderItem.deleteMany({ where: { productId: req.params.id } });
     await prisma.product.delete({ where: { id: req.params.id } });
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to delete product' });
+    console.error('Delete product error:', err);
+    res.status(500).json({ error: err.message || 'Failed to delete product' });
   }
 });
 
@@ -212,6 +274,77 @@ router.get('/business/my/orders', verifyToken, requireRole('BUSINESS'), async (r
     res.json(orders);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch orders' });
+  }
+});
+
+// POST /api/business/my/orders/:id/reject — reject order (BUSINESS only, only CREATED orders)
+router.post('/business/my/orders/:id/reject', verifyToken, requireRole('BUSINESS'), async (req, res) => {
+  try {
+    const business = await prisma.business.findUnique({ where: { ownerId: req.user.id } });
+    if (!business) return res.status(404).json({ error: 'No business found' });
+
+    const updated = await prisma.order.updateMany({
+      where: { id: req.params.id, businessId: business.id, status: 'CREATED' },
+      data: { status: 'REJECTED' },
+    });
+    if (updated.count === 0) return res.status(400).json({ error: 'Cannot reject this order' });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to reject order' });
+  }
+});
+
+// GET /api/business/my/stats — analytics for business owner
+router.get('/business/my/stats', verifyToken, requireRole('BUSINESS'), async (req, res) => {
+  try {
+    const business = await prisma.business.findUnique({ where: { ownerId: req.user.id } });
+    if (!business) return res.status(404).json({ error: 'No business found' });
+
+    const [totalOrders, doneOrders, revenueAgg, byStatus, businessOrderIds] = await Promise.all([
+      prisma.order.count({ where: { businessId: business.id } }),
+      prisma.order.count({ where: { businessId: business.id, status: 'DONE' } }),
+      prisma.order.aggregate({
+        where: { businessId: business.id, status: 'DONE' },
+        _sum: { totalPrice: true },
+        _avg: { totalPrice: true },
+      }),
+      prisma.order.groupBy({
+        by: ['status'],
+        where: { businessId: business.id },
+        _count: { _all: true },
+      }),
+      prisma.order.findMany({
+        where: { businessId: business.id },
+        select: { id: true },
+      }),
+    ]);
+
+    const orderIds = businessOrderIds.map(o => o.id);
+    const topItems = await prisma.orderItem.groupBy({
+      by: ['productId'],
+      where: { orderId: { in: orderIds } },
+      _sum: { quantity: true },
+      orderBy: { _sum: { quantity: 'desc' } },
+      take: 5,
+    });
+
+    const productIds = topItems.map(i => i.productId);
+    const products = await prisma.product.findMany({ where: { id: { in: productIds } } });
+    const productMap = Object.fromEntries(products.map(p => [p.id, p.name]));
+
+    res.json({
+      totalOrders,
+      doneOrders,
+      revenue: revenueAgg._sum.totalPrice || 0,
+      avgCheck: revenueAgg._avg.totalPrice || 0,
+      byStatus: Object.fromEntries(byStatus.map(s => [s.status, s._count._all])),
+      topProducts: topItems.map(i => ({
+        name: productMap[i.productId] || i.productId,
+        quantity: i._sum.quantity,
+      })),
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch stats' });
   }
 });
 
