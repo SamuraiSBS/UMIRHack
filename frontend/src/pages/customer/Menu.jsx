@@ -344,7 +344,8 @@ export default function Menu() {
       setShowOrderForm(false);
       setTimeout(() => navigate('/orders'), 1500);
     } catch (err) {
-      setError(err.response?.data?.error || 'Ошибка оформления заказа');
+      const data = err.response?.data;
+      setError(data?.detail ? `${data.error}: ${data.detail}` : (data?.error || 'Ошибка оформления заказа'));
     } finally {
       setOrdering(false);
     }
