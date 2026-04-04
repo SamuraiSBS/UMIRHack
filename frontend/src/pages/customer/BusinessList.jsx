@@ -294,11 +294,14 @@ export default function BusinessList() {
                     </div>
                   </Link>
                   {/* Cart controls */}
-                  <div style={{ padding: '8px 12px 12px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+                  <div
+                    onClick={e => e.stopPropagation()}
+                    style={{ padding: '8px 12px 12px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}
+                  >
                     {qty > 0 ? (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <button
-                          onClick={() => changeQty(p.businessId, p, -1)}
+                          onClick={e => { e.stopPropagation(); changeQty(p.businessId, p, -1); }}
                           style={{
                             background: '#3A3A3A', border: 'none', borderRadius: '50%',
                             width: '30px', height: '30px', color: '#FFFFFF', cursor: 'pointer', fontSize: '18px',
@@ -307,7 +310,7 @@ export default function BusinessList() {
                         >−</button>
                         <span style={{ color: '#FFFFFF', fontWeight: 700, minWidth: '16px', textAlign: 'center', fontSize: '14px' }}>{qty}</span>
                         <button
-                          onClick={() => changeQty(p.businessId, p, +1)}
+                          onClick={e => { e.stopPropagation(); changeQty(p.businessId, p, +1); }}
                           style={{
                             background: '#FFD600', border: 'none', borderRadius: '50%',
                             width: '30px', height: '30px', color: '#1C1C1C', cursor: 'pointer', fontSize: '18px',
@@ -317,7 +320,7 @@ export default function BusinessList() {
                       </div>
                     ) : (
                       <button
-                        onClick={() => changeQty(p.businessId, p, +1)}
+                        onClick={e => { e.stopPropagation(); changeQty(p.businessId, p, +1); }}
                         style={{
                           background: '#FFD600', border: 'none', borderRadius: '50%',
                           width: '30px', height: '30px', color: '#1C1C1C', cursor: 'pointer', fontSize: '20px',
