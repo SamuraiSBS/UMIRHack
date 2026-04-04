@@ -136,6 +136,17 @@ export default function ShiftControlScreen({ navigation }: Props) {
             </View>
             <Text style={{ fontSize: 24 }}>🚴</Text>
           </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [styles.navCard, pressed && styles.navCardPressed]}
+            onPress={() => navigation.navigate('CompletedDeliveries')}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={styles.navCardTitle}>История доставок</Text>
+              <Text style={styles.navCardSub}>Выполненные заказы и заработок</Text>
+            </View>
+            <Text style={{ fontSize: 24 }}>📋</Text>
+          </Pressable>
         </View>
       )}
     </ScrollView>

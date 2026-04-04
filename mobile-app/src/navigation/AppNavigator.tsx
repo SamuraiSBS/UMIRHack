@@ -7,6 +7,7 @@ import RegisterScreen from '../screens/RegisterScreen';
 import ShiftControlScreen from '../screens/ShiftControlScreen';
 import AvailableOrdersScreen from '../screens/AvailableOrdersScreen';
 import ActiveOrderScreen from '../screens/ActiveOrderScreen';
+import CompletedDeliveriesScreen from '../screens/CompletedDeliveriesScreen';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -14,6 +15,7 @@ export type RootStackParamList = {
   ShiftControl: undefined;
   AvailableOrders: undefined;
   ActiveOrder: undefined;
+  CompletedDeliveries: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -62,6 +64,11 @@ export default function AppNavigator() {
               name="ActiveOrder"
               component={ActiveOrderScreen}
               options={{ title: 'Мой заказ' }}
+            />
+            <Stack.Screen
+              name="CompletedDeliveries"
+              component={CompletedDeliveriesScreen}
+              options={{ title: 'История доставок' }}
             />
           </>
         ) : (

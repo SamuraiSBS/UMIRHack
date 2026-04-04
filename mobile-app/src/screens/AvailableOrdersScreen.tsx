@@ -22,8 +22,11 @@ interface OrderItem {
 interface Order {
   id: string;
   totalPrice: number;
+  distanceKm?: number | null;
+  deliveryFee?: number | null;
   items: OrderItem[];
   business: { name: string };
+  tradingPoint?: { name: string; address: string } | null;
 }
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AvailableOrders'>;
@@ -118,8 +121,16 @@ export default function AvailableOrdersScreen({ navigation }: Props) {
                     {itemCount} товар(ов) • {order.totalPrice.toFixed(0)} ₽
                   </Text>
                   <Text style={[styles.smallText, { marginTop: 6 }]}>
-                    <Text style={{ fontWeight: '600' }}>Откуда:</Text> {order.business.name}
+                    <Text style={{ fontWeight: '600' }}>Откуда:</Text>{' '}
+                    {order.tradingPoint
+                      ? `${order.tradingPoint.name} — ${order.tradingPoint.address}`
+                      : order.business.name}
                   </Text>
+                  {order.distanceKm != null && (
+                    <Text style={[styles.grayText, { marginTop: 2, fontSize: 12 }]}>
+                      Расстояние: {order.distanceKm} км
+                    </Text>
+                  )}
                   <Text style={[styles.grayText, { marginTop: 2, fontSize: 12 }]}>
                     Заказ #{order.id.slice(-6).toUpperCase()}
                   </Text>
@@ -132,7 +143,16 @@ export default function AvailableOrdersScreen({ navigation }: Props) {
                 </View>
 
                 <View style={styles.cardRight}>
-                  <Text style={styles.price}>{order.totalPrice.toFixed(0)} ₽</Text>
+                  {order.deliveryFee != null ? (
+                    <>
+                      <Text style={styles.price}>+{order.deliveryFee.toFixed(0)} ₽</Text>
+                      <Text style={[styles.grayText, { fontSize: 11, marginBottom: 8 }]}>
+                        заказ {order.totalPrice.toFixed(0)} ₽
+                      </Text>
+                    </>
+                  ) : (
+                    <Text style={styles.price}>{order.totalPrice.toFixed(0)} ₽</Text>
+                  )}
                   <TouchableOpacity
                     style={[styles.btnPrimary, (!shiftActive || accepting === order.id) && styles.btnDisabled]}
                     disabled={!shiftActive || accepting === order.id}
