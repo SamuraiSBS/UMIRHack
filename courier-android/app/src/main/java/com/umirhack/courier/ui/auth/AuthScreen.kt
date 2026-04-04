@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -30,9 +31,9 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.umirhack.courier.ui.AppUiState
 import com.umirhack.courier.ui.components.ErrorCard
-import com.umirhack.courier.ui.components.ScreenHeader
+import com.umirhack.courier.ui.components.PromoHeroCard
 import com.umirhack.courier.ui.components.SectionCard
-import com.umirhack.courier.ui.theme.InfoSurface
+import com.umirhack.courier.ui.components.appScreenBrush
 
 private enum class AuthMode { LOGIN, REGISTER }
 
@@ -48,30 +49,28 @@ fun AuthScreen(
     var name by rememberSaveable { mutableStateOf("") }
     var email by rememberSaveable { mutableStateOf("courier@demo.com") }
     var password by rememberSaveable { mutableStateOf("demo123") }
-    var deliveryZone by rememberSaveable { mutableStateOf("Центральный район") }
+    var deliveryZone by rememberSaveable { mutableStateOf("Ростов-на-Дону") }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(appScreenBrush())
+            .statusBarsPadding()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp, vertical = 24.dp),
-        verticalArrangement = Arrangement.Center,
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp),
-        ) {
-            SectionCard(
-                containerColor = InfoSurface,
-                borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-            ) {
-                ScreenHeader(
-                    title = "UMIR Courier",
-                    subtitle = "Курьерский кабинет в том же визуальном стиле, что и веб-версия. Данные загружаются с backend автоматически.",
-                )
-            }
+        PromoHeroCard(
+            badge = if (mode == AuthMode.LOGIN) "Вход" else "Регистрация",
+            title = "Кабинет курьера",
+            subtitle = "Войдите в аккаунт и удобно работайте с доставками!",
+        )
+
+        appState.errorMessage?.let { message ->
+            ErrorCard(
+                message = message,
+                onDismiss = onDismissError,
+            )
         }
 
         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
@@ -97,84 +96,69 @@ fun AuthScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        appState.errorMessage?.let { message ->
-            ErrorCard(
-                message = message,
-                onDismiss = onDismissError,
-                modifier = Modifier.padding(bottom = 16.dp),
-            )
-        }
-
-        SectionCard {
-            Text(
-                text = if (mode == AuthMode.LOGIN) "Вход для курьера" else "Регистрация курьера",
-                style = MaterialTheme.typography.titleLarge,
-            )
-            Text(
-                text = if (mode == AuthMode.LOGIN) {
-                    "Используйте рабочий аккаунт курьера. После входа приложение покажет смену, активные и завершённые доставки."
-                } else {
-                    "Новый аккаунт будет создан в общей базе данных через backend сервиса."
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            if (mode == AuthMode.REGISTER) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Имя") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                )
-            }
-
-            OutlinedTextField(
-                value = email,
-                onValueChange = { email = it },
-                label = { Text("Email") },
-                modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                singleLine = true,
-            )
-
-            OutlinedTextField(
-                value = password,
-                onValueChange = { password = it },
-                label = { Text("Пароль") },
-                modifier = Modifier.fillMaxWidth(),
-                visualTransformation = PasswordVisualTransformation(),
-                singleLine = true,
-            )
-
-            if (mode == AuthMode.REGISTER) {
-                OutlinedTextField(
-                    value = deliveryZone,
-                    onValueChange = { deliveryZone = it },
-                    label = { Text("Зона доставки") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                )
-            }
-
-            Button(
-                onClick = {
-                    if (mode == AuthMode.LOGIN) {
-                        onLogin(email, password)
-                    } else {
-                        onRegister(name, email, password, deliveryZone)
-                    }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !appState.submitting,
-            ) {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            SectionCard {
                 Text(
-                    if (appState.submitting) "Подождите..." else if (mode == AuthMode.LOGIN) "Войти" else "Зарегистрироваться"
+                    text = if (mode == AuthMode.LOGIN) "Вход для курьера" else "Регистрация курьера",
+                    style = MaterialTheme.typography.titleLarge,
                 )
+
+                if (mode == AuthMode.REGISTER) {
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        label = { Text("Имя") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                    )
+                }
+
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    label = { Text("Email") },
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    singleLine = true,
+                )
+
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text("Пароль") },
+                    modifier = Modifier.fillMaxWidth(),
+                    visualTransformation = PasswordVisualTransformation(),
+                    singleLine = true,
+                )
+
+                if (mode == AuthMode.REGISTER) {
+                    OutlinedTextField(
+                        value = deliveryZone,
+                        onValueChange = { deliveryZone = it },
+                        label = { Text("Зона доставки") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                    )
+                }
+
+                Button(
+                    onClick = {
+                        if (mode == AuthMode.LOGIN) {
+                            onLogin(email, password)
+                        } else {
+                            onRegister(name, email, password, deliveryZone)
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !appState.submitting,
+                ) {
+                    Text(
+                        if (appState.submitting) "Подождите..." else if (mode == AuthMode.LOGIN) "Войти" else "Зарегистрироваться"
+                    )
+                }
             }
         }
+
+        Spacer(modifier = Modifier.height(8.dp))
     }
 }

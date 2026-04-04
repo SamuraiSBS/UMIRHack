@@ -57,8 +57,8 @@ export default function Register() {
           </div>
           {form.role === 'COURIER' && (
             <div className="form-group">
-              <label>Зона доставки (район/адрес)</label>
-              <input value={form.deliveryZone} onChange={set('deliveryZone')} placeholder="Например: Центральный район" />
+              <label>Город работы</label>
+              <input value={form.deliveryZone} onChange={set('deliveryZone')} placeholder="Например: Москва" />
             </div>
           )}
           <button type="submit" className="btn-primary w-full" disabled={loading}>

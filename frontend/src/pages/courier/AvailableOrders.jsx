@@ -7,11 +7,18 @@ export default function AvailableOrders() {
   const [loading, setLoading] = useState(true);
   const [accepting, setAccepting] = useState(null); // orderId being accepted
   const [error, setError] = useState('');
+  const [shiftCity, setShiftCity] = useState('');
   const navigate = useNavigate();
 
   function load() {
-    return api.get('/orders/available')
-      .then(r => setOrders(r.data))
+    return Promise.all([
+      api.get('/orders/available'),
+      api.get('/courier/shift'),
+    ])
+      .then(([ordersRes, shiftRes]) => {
+        setOrders(ordersRes.data);
+        setShiftCity(shiftRes.data.city || '');
+      })
       .catch(err => setError(err.response?.data?.error || 'Ошибка загрузки'))
       .finally(() => setLoading(false));
   }
@@ -42,6 +49,7 @@ export default function AvailableOrders() {
   return (
     <div className="page">
       <h1 className="page-title">Доступные заказы</h1>
+      {shiftCity && <p className="text-sm text-gray" style={{ marginBottom: '12px' }}>Подборка по городу: {shiftCity}</p>}
 
       {error && <div className="error-msg">{error}</div>}
 
@@ -82,6 +90,12 @@ export default function AvailableOrders() {
                   <p className="text-sm text-gray" style={{ marginTop: '2px' }}>
                     Заказ #{order.id.slice(-6).toUpperCase()}
                   </p>
+
+                  {order.city && (
+                    <p className="text-sm text-gray" style={{ marginTop: '2px' }}>
+                      Город клиента: {order.city}
+                    </p>
+                  )}
 
                   {/* Composition summary */}
                   <div style={{ marginTop: '8px', fontSize: '12px', color: '#6b7280' }}>

@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../../api/client';
+import LeafletMap from '../../components/LeafletMap';
+import { fetchRoute } from '../../lib/map';
 
 const STATUS_LABELS = {
   CREATED:    ['#1e3a5f', '#60a5fa', 'Создан — ждём курьера'],

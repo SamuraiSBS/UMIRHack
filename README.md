@@ -2,15 +2,20 @@
 
 MVP-система доставки еды: бизнес-кабинет, интерфейс курьера и витрина для покупателей.
 
+Production:
+
+- Site: `https://umirhack-teronit.netlify.app/`
+- Backend: `https://umirhack-backend.onrender.com`
+
 ## Технологии
 
-| Слой | Технология |
-|------|-----------|
-| Backend | Node.js + Express |
-| БД | PostgreSQL |
-| ORM | Prisma |
-| Frontend | React + Vite |
-| Авторизация | JWT |
+| Слой        | Технология        |
+| ----------- | ----------------- |
+| Backend     | Node.js + Express |
+| БД          | PostgreSQL        |
+| ORM         | Prisma            |
+| Frontend    | React + Vite      |
+| Авторизация | JWT               |
 
 ## Структура проекта
 
@@ -51,6 +56,7 @@ docker compose up -d --build
 ```
 
 Бэкенд при старте сам:
+
 - дожидается готовности Postgres
 - создаёт таблицы через `prisma db push`
 - заполняет демо-данные через `node prisma/seed.js`
@@ -64,6 +70,7 @@ docker compose exec backend node prisma/seed.js
 ```
 
 Открыть:
+
 - Frontend: http://localhost:5173
 - Backend health: http://localhost:3001/health
 
@@ -78,7 +85,7 @@ docker compose exec backend node prisma/seed.js
 ```bash
 cd backend
 cp .env.example .env
-# Укажите DATABASE_URL и JWT_SECRET в .env
+# Укажите DATABASE_URL, DIRECT_URL и JWT_SECRET в .env
 
 npm install
 npx prisma migrate dev --name init
@@ -87,6 +94,13 @@ npm run dev
 ```
 
 Backend запустится на http://localhost:3001
+
+Пример production-подключения к Supabase:
+
+```env
+DATABASE_URL="postgresql://postgres.xvjrmochaeqswdwusmob:[YOUR-PASSWORD]@aws-1-eu-central-1.pooler.supabase.com:6543/postgres?pgbouncer=true"
+DIRECT_URL="postgresql://postgres.xvjrmochaeqswdwusmob:[YOUR-PASSWORD]@aws-1-eu-central-1.pooler.supabase.com:5432/postgres"
+```
 
 ### 3. Frontend
 
@@ -100,32 +114,32 @@ npm run dev
 
 ## Demo аккаунты (после seed)
 
-| Роль | Email | Пароль |
-|------|-------|--------|
-| Бизнес (пицца) | pizza@demo.com | demo123 |
-| Бизнес (суши) | sushi@demo.com | demo123 |
-| Курьер | courier@demo.com | demo123 |
-| Покупатель | customer@demo.com | demo123 |
+| Роль           | Email             | Пароль  |
+| -------------- | ----------------- | ------- |
+| Бизнес (пицца) | pizza@demo.com    | demo123 |
+| Бизнес (суши)  | sushi@demo.com    | demo123 |
+| Курьер         | courier@demo.com  | demo123 |
+| Покупатель     | customer@demo.com | demo123 |
 
 ## API
 
-| Метод | Endpoint | Роль | Описание |
-|-------|----------|------|----------|
-| POST | /api/auth/register | — | Регистрация |
-| POST | /api/auth/login | — | Вход |
-| GET | /api/business | — | Список заведений |
-| POST | /api/business | BUSINESS | Создать заведение |
-| GET | /api/business/my | BUSINESS | Своё заведение |
-| GET | /api/business/my/orders | BUSINESS | Заказы заведения |
-| GET | /api/business/:id/products | — | Меню заведения |
-| POST | /api/products | BUSINESS | Добавить позицию |
-| DELETE | /api/products/:id | BUSINESS | Удалить позицию |
-| POST | /api/orders | CUSTOMER | Создать заказ |
-| GET | /api/orders/my | CUSTOMER | Мои заказы |
-| GET | /api/orders/available | COURIER | Доступные заказы |
-| POST | /api/orders/:id/accept | COURIER | Принять заказ |
-| PATCH | /api/orders/:id/status | COURIER | Обновить статус |
-| GET | /api/courier/shift | COURIER | Статус смены |
-| POST | /api/courier/shift/start | COURIER | Начать смену |
-| POST | /api/courier/shift/stop | COURIER | Завершить смену |
-| GET | /api/courier/orders | COURIER | Мои доставки |
+| Метод  | Endpoint                   | Роль     | Описание          |
+| ------ | -------------------------- | -------- | ----------------- |
+| POST   | /api/auth/register         | —        | Регистрация       |
+| POST   | /api/auth/login            | —        | Вход              |
+| GET    | /api/business              | —        | Список заведений  |
+| POST   | /api/business              | BUSINESS | Создать заведение |
+| GET    | /api/business/my           | BUSINESS | Своё заведение    |
+| GET    | /api/business/my/orders    | BUSINESS | Заказы заведения  |
+| GET    | /api/business/:id/products | —        | Меню заведения    |
+| POST   | /api/products              | BUSINESS | Добавить позицию  |
+| DELETE | /api/products/:id          | BUSINESS | Удалить позицию   |
+| POST   | /api/orders                | CUSTOMER | Создать заказ     |
+| GET    | /api/orders/my             | CUSTOMER | Мои заказы        |
+| GET    | /api/orders/available      | COURIER  | Доступные заказы  |
+| POST   | /api/orders/:id/accept     | COURIER  | Принять заказ     |
+| PATCH  | /api/orders/:id/status     | COURIER  | Обновить статус   |
+| GET    | /api/courier/shift         | COURIER  | Статус смены      |
+| POST   | /api/courier/shift/start   | COURIER  | Начать смену      |
+| POST   | /api/courier/shift/stop    | COURIER  | Завершить смену   |
+| GET    | /api/courier/orders        | COURIER  | Мои доставки      |

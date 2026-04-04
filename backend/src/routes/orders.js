@@ -5,12 +5,12 @@ const { verifyToken, requireRole } = require('../middleware/auth');
 const prisma = new PrismaClient();
 
 // POST /api/orders — customer creates an order
-// Body: { businessId, address, items: [{ productId, quantity }], tradingPointId?, distanceKm? }
+// Body: { businessId, city, address, deliveryLat, deliveryLng, items: [{ productId, quantity }], tradingPointId?, distanceKm? }
 router.post('/', verifyToken, requireRole('CUSTOMER'), async (req, res) => {
-  const { businessId, address, items, tradingPointId, distanceKm } = req.body;
+  const { businessId, city, address, deliveryLat, deliveryLng, items, tradingPointId, distanceKm } = req.body;
 
-  if (!businessId || !address || !items?.length) {
-    return res.status(400).json({ error: 'businessId, address, and items are required' });
+  if (!businessId || !city || !address || !items?.length || deliveryLat == null || deliveryLng == null) {
+    return res.status(400).json({ error: 'businessId, city, address, deliveryLat, deliveryLng, and items are required' });
   }
 
   try {
@@ -34,7 +34,10 @@ router.post('/', verifyToken, requireRole('CUSTOMER'), async (req, res) => {
     const order = await prisma.order.create({
       data: {
         businessId,
+        city,
         address,
+        deliveryLat: Number(deliveryLat),
+        deliveryLng: Number(deliveryLng),
         totalPrice,
         distanceKm: km,
         deliveryFee,
@@ -62,7 +65,7 @@ router.get('/my', verifyToken, requireRole('CUSTOMER'), async (req, res) => {
       include: {
         items: { include: { product: true } },
         business: { select: { name: true } },
-        courier: { select: { name: true } },
+        courier: { select: { name: true, email: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -80,8 +83,23 @@ router.get('/available', verifyToken, requireRole('COURIER'), async (req, res) =
       return res.status(403).json({ error: 'Start your shift first' });
     }
 
+    const courier = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { deliveryZone: true },
+    });
+
     const orders = await prisma.order.findMany({
-      where: { status: 'CREATED' },
+      where: {
+        status: 'CREATED',
+        ...(courier?.deliveryZone
+          ? {
+              OR: [
+                { city: courier.deliveryZone },
+                { city: null },
+              ],
+            }
+          : {}),
+      },
       include: {
         business: { select: { id: true, name: true } },
         // Only show item count and total — not full address until accepted
@@ -130,6 +148,7 @@ router.post('/:id/accept', verifyToken, requireRole('COURIER'), async (req, res)
         items: { include: { product: true } },
         customer: { select: { name: true, email: true } },
         business: { select: { name: true } },
+        tradingPoint: { select: { name: true, address: true } },
       },
     });
 
@@ -174,13 +193,69 @@ router.patch('/:id/status', verifyToken, requireRole('COURIER'), async (req, res
       return res.status(404).json({ error: 'Order not found' });
     }
 
-    const updated = await prisma.order.update({
+    const validTransition =
+      (order.status === 'ACCEPTED' && status === 'DELIVERING') ||
+      (order.status === 'DELIVERING' && status === 'DONE');
+    if (!validTransition) {
+      return res.status(409).json({ error: 'Invalid order status transition' });
+    }
+
+    await prisma.order.update({
       where: { id: req.params.id },
       data: { status },
     });
+
+    const updated = await prisma.order.findUnique({
+      where: { id: req.params.id },
+      include: {
+        items: { include: { product: { select: { name: true, price: true } } } },
+        customer: { select: { name: true, email: true } },
+        business: { select: { id: true, name: true } },
+        tradingPoint: { select: { name: true, address: true } },
+      },
+    });
+
     res.json(updated);
   } catch (err) {
     res.status(500).json({ error: 'Failed to update order status' });
+  }
+});
+
+// PATCH /api/orders/:id/location — courier updates current location for customer's live tracking
+router.patch('/:id/location', verifyToken, requireRole('COURIER'), async (req, res) => {
+  const { lat, lng } = req.body;
+
+  if (lat == null || lng == null) {
+    return res.status(400).json({ error: 'lat and lng are required' });
+  }
+
+  try {
+    const order = await prisma.order.findUnique({ where: { id: req.params.id } });
+    if (!order || order.courierId !== req.user.id) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    if (!['ACCEPTED', 'DELIVERING'].includes(order.status)) {
+      return res.status(409).json({ error: 'Location can only be updated for active orders' });
+    }
+
+    const updated = await prisma.order.update({
+      where: { id: req.params.id },
+      data: {
+        courierLat: Number(lat),
+        courierLng: Number(lng),
+      },
+      select: {
+        id: true,
+        courierLat: true,
+        courierLng: true,
+        status: true,
+      },
+    });
+
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update courier location' });
   }
 });
 

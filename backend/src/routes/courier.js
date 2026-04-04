@@ -7,8 +7,17 @@ const prisma = new PrismaClient();
 // GET /api/courier/shift — get current shift status
 router.get('/shift', verifyToken, requireRole('COURIER'), async (req, res) => {
   try {
-    const shift = await prisma.courierShift.findUnique({ where: { courierId: req.user.id } });
-    res.json({ isActive: shift?.isActive ?? false });
+    const [shift, courier] = await Promise.all([
+      prisma.courierShift.findUnique({ where: { courierId: req.user.id } }),
+      prisma.user.findUnique({
+        where: { id: req.user.id },
+        select: { deliveryZone: true },
+      }),
+    ]);
+    res.json({
+      isActive: shift?.isActive ?? false,
+      city: courier?.deliveryZone ?? null,
+    });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch shift' });
   }
@@ -16,13 +25,29 @@ router.get('/shift', verifyToken, requireRole('COURIER'), async (req, res) => {
 
 // POST /api/courier/shift/start — start shift
 router.post('/shift/start', verifyToken, requireRole('COURIER'), async (req, res) => {
+  const nextCity = req.body?.city?.trim();
+
   try {
+    const courier = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { deliveryZone: true },
+    });
+    const city = nextCity || courier?.deliveryZone;
+
+    if (!city) {
+      return res.status(400).json({ error: 'Choose a city before starting your shift' });
+    }
+
     const shift = await prisma.courierShift.upsert({
       where: { courierId: req.user.id },
       update: { isActive: true, startedAt: new Date() },
       create: { courierId: req.user.id, isActive: true },
     });
-    res.json(shift);
+    await prisma.user.update({
+      where: { id: req.user.id },
+      data: { deliveryZone: city },
+    });
+    res.json({ ...shift, city });
   } catch (err) {
     res.status(500).json({ error: 'Failed to start shift' });
   }
@@ -39,6 +64,31 @@ router.post('/shift/stop', verifyToken, requireRole('COURIER'), async (req, res)
     res.json(shift);
   } catch (err) {
     res.status(500).json({ error: 'Failed to stop shift' });
+  }
+});
+
+// PATCH /api/courier/city — update courier's working city without resetting shift history
+router.patch('/city', verifyToken, requireRole('COURIER'), async (req, res) => {
+  const city = req.body?.city?.trim();
+  if (!city) {
+    return res.status(400).json({ error: 'city is required' });
+  }
+
+  try {
+    const [courier, shift] = await Promise.all([
+      prisma.user.update({
+        where: { id: req.user.id },
+        data: { deliveryZone: city },
+        select: { deliveryZone: true },
+      }),
+      prisma.courierShift.findUnique({ where: { courierId: req.user.id } }),
+    ]);
+    res.json({
+      isActive: shift?.isActive ?? false,
+      city: courier.deliveryZone,
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update city' });
   }
 });
 

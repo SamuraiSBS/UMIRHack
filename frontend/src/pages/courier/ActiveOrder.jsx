@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/client';
+import LeafletMap from '../../components/LeafletMap';
+import { fetchRoute } from '../../lib/map';
 
 const STATUS_LABELS = {
   ACCEPTED: 'Принят — едете к точке выдачи',
@@ -16,10 +18,14 @@ const NEXT_STATUS = {
 export default function ActiveOrder() {
   const [order, setOrder] = useState(null);
   const [history, setHistory] = useState([]); // completed orders
+  const [route, setRoute] = useState(null);
+  const [courierPosition, setCourierPosition] = useState(null);
+  const [geoStatus, setGeoStatus] = useState('Подключаем геолокацию...');
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const lastSyncRef = useRef(0);
 
   function load() {
     return api.get('/courier/orders').then(r => {
@@ -31,6 +37,77 @@ export default function ActiveOrder() {
   }
 
   useEffect(() => { load().finally(() => setLoading(false)); }, []);
+
+  useEffect(() => {
+    if (order?.courierLat != null && order?.courierLng != null) {
+      setCourierPosition({ lat: order.courierLat, lng: order.courierLng });
+    }
+  }, [order?.courierLat, order?.courierLng]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadRoutePreview() {
+      if (order?.deliveryLat == null || order?.deliveryLng == null || !courierPosition) {
+        setRoute(null);
+        return;
+      }
+
+      try {
+        const result = await fetchRoute(courierPosition, {
+          lat: order.deliveryLat,
+          lng: order.deliveryLng,
+        });
+        if (!cancelled) setRoute(result);
+      } catch {
+        if (!cancelled) setRoute(null);
+      }
+    }
+
+    loadRoutePreview();
+    return () => {
+      cancelled = true;
+    };
+  }, [courierPosition, order?.deliveryLat, order?.deliveryLng]);
+
+  useEffect(() => {
+    if (!order || !['ACCEPTED', 'DELIVERING'].includes(order.status)) return undefined;
+    if (!navigator.geolocation) {
+      setGeoStatus('Браузер не поддерживает геолокацию.');
+      return undefined;
+    }
+
+    const watchId = navigator.geolocation.watchPosition(
+      async (position) => {
+        const nextPosition = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        };
+        setCourierPosition(nextPosition);
+        setGeoStatus('Локация курьера обновляется в реальном времени.');
+
+        const now = Date.now();
+        if (now - lastSyncRef.current < 10000) return;
+        lastSyncRef.current = now;
+
+        try {
+          await api.patch(`/orders/${order.id}/location`, nextPosition);
+        } catch {
+          setGeoStatus('Не удалось отправить текущую геопозицию на сервер.');
+        }
+      },
+      (geoError) => {
+        setGeoStatus(geoError.message || 'Доступ к геопозиции отклонён.');
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 5000,
+        timeout: 10000,
+      }
+    );
+
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [order]);
 
   async function updateStatus() {
     if (!order) return;
@@ -80,6 +157,32 @@ export default function ActiveOrder() {
           {/* Delivery address — shown only after accepting */}
           <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '2px' }}>Адрес доставки</p>
           <p style={{ fontWeight: 600, marginBottom: '12px', color: '#111827' }}>{order.address}</p>
+
+          {order.deliveryLat != null && order.deliveryLng != null && (
+            <div style={{ marginBottom: '14px' }}>
+              <div className="tracking-summary">
+                <div>
+                  <strong>Маршрут до клиента</strong>
+                  <p className="text-sm text-gray">{geoStatus}</p>
+                </div>
+                {route && (
+                  <div style={{ textAlign: 'right' }}>
+                    <strong>~{Math.max(5, Math.round(route.durationMin))} мин</strong>
+                    <p className="text-sm text-gray">{route.distanceKm.toFixed(1)} км</p>
+                  </div>
+                )}
+              </div>
+              <LeafletMap
+                center={[order.deliveryLat, order.deliveryLng]}
+                zoom={13}
+                interactive={false}
+                destination={{ lat: order.deliveryLat, lng: order.deliveryLng }}
+                courier={courierPosition || (order.courierLat != null && order.courierLng != null ? { lat: order.courierLat, lng: order.courierLng } : null)}
+                route={route?.coordinates}
+                height={300}
+              />
+            </div>
+          )}
 
           {/* Customer contact */}
           <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '2px' }}>Клиент</p>

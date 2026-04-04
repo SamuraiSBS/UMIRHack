@@ -2,13 +2,17 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../api/client';
+import { CITY_OPTIONS } from '../../lib/cities';
 
 export default function ShiftControl() {
   const { user } = useAuth();
   const [isActive, setIsActive] = useState(false);
+  const [city, setCity] = useState(CITY_OPTIONS[0].value);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState(false);
+  const [savingCity, setSavingCity] = useState(false);
   const [activeOrder, setActiveOrder] = useState(null);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     Promise.all([
@@ -16,6 +20,7 @@ export default function ShiftControl() {
       api.get('/courier/orders'),
     ]).then(([shiftRes, ordersRes]) => {
       setIsActive(shiftRes.data.isActive);
+      if (shiftRes.data.city) setCity(shiftRes.data.city);
       // Find current active order (ACCEPTED or DELIVERING)
       const active = ordersRes.data.find(o => o.status === 'ACCEPTED' || o.status === 'DELIVERING');
       setActiveOrder(active || null);
@@ -24,16 +29,31 @@ export default function ShiftControl() {
 
   async function toggleShift() {
     setToggling(true);
+    setError('');
     try {
       if (isActive) {
         await api.post('/courier/shift/stop');
         setIsActive(false);
       } else {
-        await api.post('/courier/shift/start');
+        await api.post('/courier/shift/start', { city });
         setIsActive(true);
       }
+    } catch (err) {
+      setError(err.response?.data?.error || 'Не удалось обновить смену');
     } finally {
       setToggling(false);
+    }
+  }
+
+  async function saveCity() {
+    setSavingCity(true);
+    setError('');
+    try {
+      await api.patch('/courier/city', { city });
+    } catch (err) {
+      setError(err.response?.data?.error || 'Не удалось сохранить город');
+    } finally {
+      setSavingCity(false);
     }
   }
 
@@ -46,6 +66,27 @@ export default function ShiftControl() {
       <p style={{ fontSize: '15px', color: '#374151', marginBottom: '20px' }}>
         Привет, <strong>{user?.name || user?.email}</strong>!
       </p>
+
+      {error && <div className="error-msg">{error}</div>}
+
+      <div className="card" style={{ marginBottom: '16px' }}>
+        <div className="form-group" style={{ marginBottom: '12px' }}>
+          <label>Город работы</label>
+          <select value={city} onChange={(e) => setCity(e.target.value)}>
+            {CITY_OPTIONS.map((item) => (
+              <option key={item.value} value={item.value}>{item.value}</option>
+            ))}
+          </select>
+        </div>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <button className="btn-outline" onClick={saveCity} disabled={savingCity}>
+            {savingCity ? 'Сохраняем...' : 'Сохранить город'}
+          </button>
+          <p className="text-sm text-gray">
+            Город запоминается и не сбрасывается после завершения смены.
+          </p>
+        </div>
+      </div>
 
       {/* Shift status card */}
       <div className="card" style={{ textAlign: 'center', padding: '32px 16px', marginBottom: '16px' }}>
@@ -61,7 +102,7 @@ export default function ShiftControl() {
           {isActive ? 'Смена активна' : 'Смена завершена'}
         </p>
         <p className="text-gray text-sm" style={{ marginBottom: '20px' }}>
-          {isActive ? 'Вы принимаете заказы' : 'Начните смену чтобы принимать заказы'}
+          {isActive ? `Вы принимаете заказы в городе ${city}` : `Начните смену в городе ${city}`}
         </p>
 
         <button
