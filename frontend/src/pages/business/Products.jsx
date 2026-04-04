@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import api from '../../api/client';
 
+const CATEGORIES = ['Горячее', 'Холодное', 'Закуски', 'Супы', 'Салаты', 'Напитки', 'Десерты', 'Соусы', 'Другое'];
+
 export default function Products() {
   const [business, setBusiness] = useState(null);
   const [products, setProducts] = useState([]);
@@ -151,7 +153,10 @@ export default function Products() {
             </div>
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label>Категория</label>
-              <input value={form.category} onChange={set('category')} placeholder="Горячее, Напитки, Десерты..." />
+              <select value={form.category} onChange={set('category')}>
+                <option value="">— без категории —</option>
+                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
             </div>
           </div>
           <div className="form-group" style={{ marginTop: '12px' }}>
@@ -198,7 +203,10 @@ export default function Products() {
                   </div>
                   <div className="form-group">
                     <label>Категория</label>
-                    <input value={editForm.category} onChange={setEdit('category')} placeholder="Горячее, Напитки..." />
+                    <select value={editForm.category} onChange={setEdit('category')}>
+                      <option value="">— без категории —</option>
+                      {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
                   </div>
                 </div>
                 <div className="form-group">
