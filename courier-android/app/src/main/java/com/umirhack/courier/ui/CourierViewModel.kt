@@ -15,6 +15,36 @@ import kotlinx.coroutines.launch
 
 private val ACTIVE_STATUSES = setOf("ACCEPTED", "DELIVERING")
 
+private fun OrderDto.mergeWithFallback(fallback: OrderDto): OrderDto =
+    copy(
+        address = address ?: fallback.address,
+        distanceKm = distanceKm ?: fallback.distanceKm,
+        deliveryFee = deliveryFee ?: fallback.deliveryFee,
+        createdAt = createdAt ?: fallback.createdAt,
+        items = items?.takeIf { it.isNotEmpty() } ?: fallback.items,
+        business = business?.let { current ->
+            val previous = fallback.business
+            current.copy(
+                id = current.id ?: previous?.id,
+                name = current.name ?: previous?.name,
+            )
+        } ?: fallback.business,
+        tradingPoint = tradingPoint?.let { current ->
+            val previous = fallback.tradingPoint
+            current.copy(
+                name = current.name.ifBlank { previous?.name.orEmpty() },
+                address = current.address.ifBlank { previous?.address.orEmpty() },
+            )
+        } ?: fallback.tradingPoint,
+        customer = customer?.let { current ->
+            val previous = fallback.customer
+            current.copy(
+                name = current.name ?: previous?.name,
+                email = current.email ?: previous?.email,
+            )
+        } ?: fallback.customer,
+    )
+
 data class CourierUiState(
     val isLoading: Boolean = false,
     val isShiftUpdating: Boolean = false,
@@ -191,21 +221,22 @@ class CourierViewModel(
             _uiState.update { it.copy(isUpdatingActiveOrder = true, errorMessage = null) }
             runCatching { repository.updateOrderStatus(order.id, nextStatus) }
                 .onSuccess { updatedOrder ->
+                    val resolvedOrder = updatedOrder.mergeWithFallback(order)
                     _uiState.update {
-                        val updatedCompletedOrders = if (updatedOrder.status == "DONE") {
-                            listOf(updatedOrder) + it.completedOrders.filterNot { completed -> completed.id == updatedOrder.id }
+                        val updatedCompletedOrders = if (resolvedOrder.status == "DONE") {
+                            listOf(resolvedOrder) + it.completedOrders.filterNot { completed -> completed.id == resolvedOrder.id }
                         } else {
                             it.completedOrders
                         }
-                        val updatedCompletedToday = if (updatedOrder.status == "DONE" && isToday(updatedOrder.createdAt)) {
-                            listOf(updatedOrder) + it.completedToday.filterNot { completed -> completed.id == updatedOrder.id }
+                        val updatedCompletedToday = if (resolvedOrder.status == "DONE" && isToday(resolvedOrder.createdAt)) {
+                            listOf(resolvedOrder) + it.completedToday.filterNot { completed -> completed.id == resolvedOrder.id }
                         } else {
                             it.completedToday
                         }
                         it.copy(
                             isUpdatingActiveOrder = false,
-                            activeOrder = updatedOrder.takeIf { current -> current.status in ACTIVE_STATUSES },
-                            recentCompletedOrder = updatedOrder.takeIf { current -> current.status == "DONE" },
+                            activeOrder = resolvedOrder.takeIf { current -> current.status in ACTIVE_STATUSES },
+                            recentCompletedOrder = resolvedOrder.takeIf { current -> current.status == "DONE" },
                             completedOrders = updatedCompletedOrders,
                             completedToday = updatedCompletedToday,
                             lastUpdatedAtMillis = System.currentTimeMillis(),
