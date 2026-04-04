@@ -22,6 +22,7 @@ import CompletedDeliveries from './pages/courier/CompletedDeliveries';
 import Dashboard from './pages/business/Dashboard';
 import Products from './pages/business/Products';
 import BusinessSettings from './pages/business/BusinessSettings';
+import BusinessStats from './pages/business/BusinessStats';
 
 // Admin pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -62,6 +63,7 @@ export default function App() {
         <Route path="/business" element={<ProtectedRoute roles={['BUSINESS']}><Dashboard /></ProtectedRoute>} />
         <Route path="/business/products" element={<ProtectedRoute roles={['BUSINESS']}><Products /></ProtectedRoute>} />
         <Route path="/business/settings" element={<ProtectedRoute roles={['BUSINESS']}><BusinessSettings /></ProtectedRoute>} />
+        <Route path="/business/stats" element={<ProtectedRoute roles={['BUSINESS']}><BusinessStats /></ProtectedRoute>} />
 
         {/* Admin routes */}
         <Route path="/admin" element={<ProtectedRoute roles={['ADMIN']}><AdminDashboard /></ProtectedRoute>} />

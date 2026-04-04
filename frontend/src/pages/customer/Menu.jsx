@@ -31,8 +31,12 @@ export default function Menu() {
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
+    localStorage.setItem(`cart_${id}`, JSON.stringify(cart));
+  }, [cart, id]);
+
+  useEffect(() => {
     Promise.all([
-      api.get('/business').then(r => r.data.find(b => b.id === id)),
+      api.get(`/business/${id}`).then(r => r.data),
       api.get(`/business/${id}/products`).then(r => r.data),
       api.get(`/business/${id}/trading-points`).then(r => r.data).catch(() => []),
     ]).then(([biz, prods, points]) => {
@@ -67,6 +71,10 @@ export default function Menu() {
     setError('');
     setOrdering(true);
     try {
+      if (saveAddress && newAddressLabel.trim()) {
+        const saved = await api.post('/addresses', { label: newAddressLabel.trim(), address: address.trim() });
+        setSavedAddresses(prev => [...prev, saved.data]);
+      }
       await api.post('/orders', {
         businessId: id,
         address: address.trim(),
@@ -76,6 +84,7 @@ export default function Menu() {
       });
       setSuccess('Заказ оформлен! Переходим к вашим заказам...');
       setCart({});
+      localStorage.removeItem(`cart_${id}`);
       setTimeout(() => navigate('/orders'), 1500);
     } catch (err) {
       setError(err.response?.data?.error || 'Ошибка оформления заказа');
@@ -93,38 +102,72 @@ export default function Menu() {
       </button>
 
       <h1 className="page-title">{business?.name || 'Меню'}</h1>
-      {business?.description && <p className="text-gray text-sm" style={{ marginBottom: '20px' }}>{business.description}</p>}
+      {business?.description && <p className="text-gray text-sm" style={{ marginBottom: '8px' }}>{business.description}</p>}
+      {business?.deliveryZone && (
+        <p className="text-sm text-gray" style={{ marginBottom: '4px' }}>Зона доставки: {business.deliveryZone}</p>
+      )}
+      {business?.tradingPoints?.length > 0 && (
+        <div style={{ marginBottom: '16px' }}>
+          <p className="text-sm" style={{ fontWeight: 600, marginBottom: '4px' }}>Адреса:</p>
+          {business.tradingPoints.map(tp => (
+            <p key={tp.id} className="text-sm text-gray">📍 {tp.name}: {tp.address}</p>
+          ))}
+        </div>
+      )}
 
       {products.length === 0 && <p className="text-gray">Меню пока пусто.</p>}
 
-      <div className="grid grid-2">
-        {products.map(p => (
-          <div key={p.id} className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div>
-                <h3 style={{ fontSize: '15px', fontWeight: 600 }}>{p.name}</h3>
-                {p.description && <p className="text-sm text-gray" style={{ marginTop: '2px' }}>{p.description}</p>}
-                <p style={{ marginTop: '8px', fontWeight: 700, color: '#2563eb' }}>{p.price} ₽</p>
-              </div>
+      {(() => {
+        const grouped = products.reduce((acc, p) => {
+          const key = p.category || 'Остальное';
+          if (!acc[key]) acc[key] = [];
+          acc[key].push(p);
+          return acc;
+        }, {});
+        return Object.entries(grouped).map(([category, items]) => (
+          <div key={category}>
+            {Object.keys(grouped).length > 1 && (
+              <h3 style={{ fontSize: '16px', fontWeight: 700, margin: '20px 0 10px' }}>{category}</h3>
+            )}
+            <div className="grid grid-2">
+              {items.map(p => (
+                <div key={p.id} className="card">
+                  {p.imageUrl && (
+                    <img
+                      src={p.imageUrl}
+                      alt={p.name}
+                      style={{ width: '100%', height: '140px', objectFit: 'cover', borderRadius: '8px', marginBottom: '8px' }}
+                      onError={e => { e.target.style.display = 'none'; }}
+                    />
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                      <h3 style={{ fontSize: '15px', fontWeight: 600 }}>{p.name}</h3>
+                      {p.description && <p className="text-sm text-gray" style={{ marginTop: '2px' }}>{p.description}</p>}
+                      <p style={{ marginTop: '8px', fontWeight: 700, color: '#2563eb' }}>{p.price} ₽</p>
+                    </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                {cart[p.id] ? (
-                  <>
-                    <button onClick={() => changeQty(p.id, -1)} className="btn-outline"
-                      style={{ padding: '4px 10px', fontSize: '16px' }}>−</button>
-                    <span style={{ fontWeight: 700, minWidth: '20px', textAlign: 'center' }}>{cart[p.id]}</span>
-                    <button onClick={() => changeQty(p.id, +1)} className="btn-primary"
-                      style={{ padding: '4px 10px', fontSize: '16px' }}>+</button>
-                  </>
-                ) : (
-                  <button onClick={() => changeQty(p.id, +1)} className="btn-primary"
-                    style={{ padding: '6px 14px', fontSize: '13px' }}>Добавить</button>
-                )}
-              </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                      {cart[p.id] ? (
+                        <>
+                          <button onClick={() => changeQty(p.id, -1)} className="btn-outline"
+                            style={{ padding: '4px 10px', fontSize: '16px' }}>−</button>
+                          <span style={{ fontWeight: 700, minWidth: '20px', textAlign: 'center' }}>{cart[p.id]}</span>
+                          <button onClick={() => changeQty(p.id, +1)} className="btn-primary"
+                            style={{ padding: '4px 10px', fontSize: '16px' }}>+</button>
+                        </>
+                      ) : (
+                        <button onClick={() => changeQty(p.id, +1)} className="btn-primary"
+                          style={{ padding: '6px 14px', fontSize: '13px' }}>Добавить</button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-        ))}
-      </div>
+        ));
+      })()}
 
       {/* Cart / Order form */}
       {cartItems.length > 0 && (
@@ -150,12 +193,41 @@ export default function Menu() {
           <form onSubmit={handleOrder}>
             <div className="form-group">
               <label>Адрес доставки</label>
+              {savedAddresses.length > 0 && (
+                <select
+                  onChange={e => { if (e.target.value) setAddress(e.target.value); }}
+                  style={{ marginBottom: '8px' }}
+                  defaultValue=""
+                >
+                  <option value="">— Выбрать сохранённый адрес —</option>
+                  {savedAddresses.map(a => (
+                    <option key={a.id} value={a.address}>{a.label}: {a.address}</option>
+                  ))}
+                </select>
+              )}
               <input
                 value={address}
                 onChange={e => setAddress(e.target.value)}
                 placeholder="ул. Пушкина, д. 1, кв. 10"
                 required
               />
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px', fontSize: '13px', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={saveAddress}
+                  onChange={e => setSaveAddress(e.target.checked)}
+                  style={{ width: 'auto', margin: 0 }}
+                />
+                Сохранить адрес
+              </label>
+              {saveAddress && (
+                <input
+                  value={newAddressLabel}
+                  onChange={e => setNewAddressLabel(e.target.value)}
+                  placeholder='Название: "Дом", "Работа"...'
+                  style={{ marginTop: '6px' }}
+                />
+              )}
             </div>
             {tradingPoints.length > 0 && (
               <div className="form-group">

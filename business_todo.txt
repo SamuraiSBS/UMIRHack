@@ -1,0 +1,782 @@
+================================================================================
+ЧТО НЕ РЕАЛИЗОВАНО ДЛЯ ВЛАДЕЛЬЦЕВ ПРЕДПРИЯТИЯ (BUSINESS role)
+Файл для пошаговой реализации. Каждый пункт — отдельная задача.
+================================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ЗАДАЧА 1: Редактирование торговых точек
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ПРОБЛЕМА:
+  Есть только добавление (POST) и удаление (DELETE) торговых точек.
+  Нет редактирования — если опечатался в адресе, надо удалять и создавать заново.
+
+ШАГ 1 — BACKEND: добавить PATCH-роут в файл backend/src/routes/business.js
+  ВСТАВИТЬ после строки 115 (после DELETE /my/trading-points/:id), перед строкой 117:
+
+  // PATCH /api/business/my/trading-points/:id — update trading point
+  router.patch('/business/my/trading-points/:id', verifyToken, requireRole('BUSINESS'), async (req, res) => {
+    const { name, address } = req.body;
+    if (!name || !address) return res.status(400).json({ error: 'Name and address are required' });
+    try {
+      const business = await prisma.business.findUnique({ where: { ownerId: req.user.id } });
+      if (!business) return res.status(404).json({ error: 'No business found' });
+
+      const point = await prisma.tradingPoint.findFirst({
+        where: { id: req.params.id, businessId: business.id },
+      });
+      if (!point) return res.status(404).json({ error: 'Trading point not found' });
+
+      const updated = await prisma.tradingPoint.update({
+        where: { id: req.params.id },
+        data: { name, address },
+      });
+      res.json(updated);
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to update trading point' });
+    }
+  });
+
+ШАГ 2 — FRONTEND: изменить файл frontend/src/pages/business/BusinessSettings.jsx
+  Добавить state для inline-редактирования точек (по аналогии с Products.jsx).
+
+  А) После строки 11 (const [deletingPoint, setDeletingPoint] = useState(null);) добавить:
+    const [editingPointId, setEditingPointId] = useState(null);
+    const [editPointForm, setEditPointForm] = useState({ name: '', address: '' });
+    const [editingPointSaving, setEditingPointSaving] = useState(false);
+
+  Б) После функции handleDeletePoint (после строки 79) добавить две функции:
+
+    function startEditPoint(point) {
+      setEditingPointId(point.id);
+      setEditPointForm({ name: point.name, address: point.address });
+      setError('');
+    }
+
+    function cancelEditPoint() {
+      setEditingPointId(null);
+      setEditPointForm({ name: '', address: '' });
+    }
+
+    async function handleEditPoint(id) {
+      if (!editPointForm.name || !editPointForm.address) { setError('Название и адрес обязательны'); return; }
+      setError('');
+      setEditingPointSaving(true);
+      try {
+        const res = await api.patch(`/business/my/trading-points/${id}`, editPointForm);
+        setPoints(prev => prev.map(p => p.id === id ? res.data : p));
+        setEditingPointId(null);
+        setSuccess('Точка обновлена!');
+      } catch (err) {
+        setError(err.response?.data?.error || 'Ошибка обновления');
+      } finally {
+        setEditingPointSaving(false);
+      }
+    }
+
+  В) Заменить блок рендера точки (строки 128-143):
+    БЫЛО:
+      <div key={p.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px' }}>
+        <div>
+          <p style={{ fontWeight: 600, fontSize: '14px' }}>{p.name}</p>
+          <p className="text-sm text-gray">{p.address}</p>
+        </div>
+        <button
+          onClick={() => handleDeletePoint(p.id)}
+          disabled={deletingPoint === p.id}
+          className="btn-danger"
+          style={{ padding: '4px 10px', fontSize: '12px', flexShrink: 0, marginLeft: '12px' }}
+        >
+          {deletingPoint === p.id ? '...' : 'Удалить'}
+        </button>
+      </div>
+
+    СТАЛО:
+      <div key={p.id} className="card" style={{ padding: '12px' }}>
+        {editingPointId === p.id ? (
+          <div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label>Название</label>
+                <input value={editPointForm.name} onChange={e => setEditPointForm(f => ({ ...f, name: e.target.value }))} />
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label>Адрес</label>
+                <input value={editPointForm.address} onChange={e => setEditPointForm(f => ({ ...f, address: e.target.value }))} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={() => handleEditPoint(p.id)} disabled={editingPointSaving} className="btn-success" style={{ padding: '4px 10px', fontSize: '12px' }}>
+                {editingPointSaving ? '...' : 'Сохранить'}
+              </button>
+              <button onClick={cancelEditPoint} className="btn-outline" style={{ padding: '4px 10px', fontSize: '12px' }}>Отмена</button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <p style={{ fontWeight: 600, fontSize: '14px' }}>{p.name}</p>
+              <p className="text-sm text-gray">{p.address}</p>
+            </div>
+            <div style={{ display: 'flex', gap: '6px', flexShrink: 0, marginLeft: '12px' }}>
+              <button onClick={() => startEditPoint(p)} className="btn-outline" style={{ padding: '4px 10px', fontSize: '12px' }}>Изменить</button>
+              <button onClick={() => handleDeletePoint(p.id)} disabled={deletingPoint === p.id} className="btn-danger" style={{ padding: '4px 10px', fontSize: '12px' }}>
+                {deletingPoint === p.id ? '...' : 'Удалить'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ЗАДАЧА 2: Фотографии продуктов (imageUrl)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ПРОБЛЕМА:
+  Модель Product содержит только name, description, price.
+  Нет поля imageUrl. Нельзя добавить фото к позиции меню.
+  В карточках покупателя тоже нет картинок.
+
+ШАГ 1 — SCHEMA: изменить файл backend/prisma/schema.prisma
+  В модели Product (строки 63-71) добавить поле imageUrl после поля price:
+    imageUrl    String?
+
+  ИТОГОВАЯ модель Product:
+    model Product {
+      id          String      @id @default(cuid())
+      name        String
+      description String?
+      price       Float
+      imageUrl    String?
+      businessId  String
+      business    Business    @relation(fields: [businessId], references: [id])
+      orderItems  OrderItem[]
+    }
+
+  После изменения схемы выполнить в терминале:
+    cd backend
+    npm run db:migrate
+    npm run db:generate
+
+ШАГ 2 — BACKEND: изменить файл backend/src/routes/business.js
+
+  А) В POST /api/products (строка 130) изменить деструктуризацию req.body:
+    БЫЛО:  const { name, description, price } = req.body;
+    СТАЛО: const { name, description, price, imageUrl } = req.body;
+
+    И в data при create добавить imageUrl:
+    БЫЛО:  data: { name, description, price: Number(price), businessId: business.id },
+    СТАЛО: data: { name, description, price: Number(price), imageUrl: imageUrl || null, businessId: business.id },
+
+  Б) В PATCH /api/products/:id (строка 148) изменить деструктуризацию:
+    БЫЛО:  const { name, description, price } = req.body;
+    СТАЛО: const { name, description, price, imageUrl } = req.body;
+
+    И в data при update добавить строку:
+      ...(imageUrl !== undefined && { imageUrl }),
+
+ШАГ 3 — FRONTEND Products.jsx: добавить поле imageUrl
+
+  А) В useState form (строка 8) добавить imageUrl:
+    БЫЛО:  const [form, setForm] = useState({ name: '', description: '', price: '' });
+    СТАЛО: const [form, setForm] = useState({ name: '', description: '', price: '', imageUrl: '' });
+
+  Б) В useState editForm (строка 12) добавить imageUrl:
+    БЫЛО:  const [editForm, setEditForm] = useState({ name: '', description: '', price: '' });
+    СТАЛО: const [editForm, setEditForm] = useState({ name: '', description: '', price: '', imageUrl: '' });
+
+  В) В функции startEdit (строка 53) добавить imageUrl:
+    БЫЛО:  setEditForm({ name: product.name, description: product.description || '', price: String(product.price) });
+    СТАЛО: setEditForm({ name: product.name, description: product.description || '', price: String(product.price), imageUrl: product.imageUrl || '' });
+
+  Г) В api.post('/products', ...) (строка 41) добавить imageUrl:
+    БЫЛО:  await api.post('/products', { name: form.name, description: form.description, price: parseFloat(form.price) });
+    СТАЛО: await api.post('/products', { name: form.name, description: form.description, price: parseFloat(form.price), imageUrl: form.imageUrl || null });
+
+  Д) В api.patch в handleEdit (строка 68) добавить imageUrl:
+    БЫЛО:
+      const res = await api.patch(`/products/${productId}`, {
+        name: editForm.name,
+        description: editForm.description,
+        price: parseFloat(editForm.price),
+      });
+    СТАЛО:
+      const res = await api.patch(`/products/${productId}`, {
+        name: editForm.name,
+        description: editForm.description,
+        price: parseFloat(editForm.price),
+        imageUrl: editForm.imageUrl || null,
+      });
+
+  Е) В форму добавления (после поля Описание, строка 126) добавить поле:
+    <div className="form-group" style={{ marginTop: '12px' }}>
+      <label>Фото (URL изображения)</label>
+      <input value={form.imageUrl} onChange={set('imageUrl')} placeholder="https://example.com/photo.jpg" />
+    </div>
+
+  Ж) В форму редактирования (после поля Описание в editForm) добавить:
+    <div className="form-group">
+      <label>Фото (URL)</label>
+      <input value={editForm.imageUrl} onChange={setEdit('imageUrl')} placeholder="https://..." />
+    </div>
+
+  З) В карточке продукта (Normal view, перед именем h3) добавить отображение картинки:
+    {p.imageUrl && (
+      <img
+        src={p.imageUrl}
+        alt={p.name}
+        style={{ width: '100%', height: '140px', objectFit: 'cover', borderRadius: '8px', marginBottom: '8px' }}
+        onError={e => { e.target.style.display = 'none'; }}
+      />
+    )}
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ЗАДАЧА 3: Доступность продукта (isAvailable / out of stock)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ПРОБЛЕМА:
+  Если блюдо закончилось, единственный вариант убрать его из меню — удалить совсем.
+  Нет поля isAvailable для временного скрытия позиции без удаления.
+
+ШАГ 1 — SCHEMA: изменить файл backend/prisma/schema.prisma
+  В модели Product добавить поле isAvailable после imageUrl:
+    isAvailable Boolean  @default(true)
+
+  ИТОГОВАЯ модель Product:
+    model Product {
+      id          String      @id @default(cuid())
+      name        String
+      description String?
+      price       Float
+      imageUrl    String?
+      isAvailable Boolean     @default(true)
+      businessId  String
+      business    Business    @relation(fields: [businessId], references: [id])
+      orderItems  OrderItem[]
+    }
+
+  После изменения схемы:
+    cd backend && npm run db:migrate && npm run db:generate
+
+ШАГ 2 — BACKEND: изменить файл backend/src/routes/business.js
+
+  А) В PATCH /api/products/:id добавить isAvailable в деструктуризацию:
+    БЫЛО:  const { name, description, price, imageUrl } = req.body;
+    СТАЛО: const { name, description, price, imageUrl, isAvailable } = req.body;
+
+    И в data добавить строку:
+      ...(isAvailable !== undefined && { isAvailable: Boolean(isAvailable) }),
+
+  Б) В GET /api/business/:id/products (строка 118) — для публичного просмотра
+    фильтровать только доступные товары:
+    БЫЛО:
+      const products = await prisma.product.findMany({
+        where: { businessId: req.params.id },
+      });
+    СТАЛО:
+      const products = await prisma.product.findMany({
+        where: { businessId: req.params.id, isAvailable: true },
+      });
+
+    ВАЖНО: бизнес-владелец должен видеть ВСЕ товары включая недоступные.
+    В GET /business/my/orders уже идёт через products, а владелец смотрит
+    через GET /business/:id/products с businessId.
+    Поэтому добавить отдельный роут для владельца:
+
+    // GET /api/business/my/products — все продукты для владельца (включая недоступные)
+    router.get('/business/my/products', verifyToken, requireRole('BUSINESS'), async (req, res) => {
+      try {
+        const business = await prisma.business.findUnique({ where: { ownerId: req.user.id } });
+        if (!business) return res.status(404).json({ error: 'No business found' });
+        const products = await prisma.product.findMany({ where: { businessId: business.id } });
+        res.json(products);
+      } catch (err) {
+        res.status(500).json({ error: 'Failed to fetch products' });
+      }
+    });
+
+    ВСТАВИТЬ этот роут после GET /business/my/trading-points (после строки 81).
+
+ШАГ 3 — FRONTEND Products.jsx: переключатель доступности
+
+  А) В loadProducts поменять URL на /business/my/products:
+    БЫЛО:  return api.get(`/business/${bizId}/products`).then(r => setProducts(r.data));
+    СТАЛО: return api.get('/business/my/products').then(r => setProducts(r.data));
+    (bizId больше не нужен в вызове, но можно оставить параметр для совместимости)
+
+  Б) В карточке продукта (Normal view) добавить кнопку-переключатель доступности.
+    После блока с кнопками Изменить/Удалить добавить:
+
+    async function handleToggleAvailable(product) {
+      try {
+        const res = await api.patch(`/products/${product.id}`, { isAvailable: !product.isAvailable });
+        setProducts(prev => prev.map(p => p.id === product.id ? res.data : p));
+      } catch (err) {
+        setError('Ошибка изменения доступности');
+      }
+    }
+
+    В карточке продукта добавить визуальный индикатор и кнопку:
+    {!p.isAvailable && (
+      <span style={{ fontSize: '11px', color: '#dc2626', fontWeight: 600, background: '#fee2e2', padding: '2px 6px', borderRadius: '4px' }}>
+        Нет в наличии
+      </span>
+    )}
+    <button
+      onClick={() => handleToggleAvailable(p)}
+      className={p.isAvailable ? 'btn-outline' : 'btn-success'}
+      style={{ padding: '4px 10px', fontSize: '12px' }}
+    >
+      {p.isAvailable ? 'Скрыть' : 'Показать'}
+    </button>
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ЗАДАЧА 4: Категории меню (category)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ПРОБЛЕМА:
+  Продукты не группируются по категориям. В реальном меню нужно разделять
+  позиции: Горячее, Холодное, Напитки, Десерты, Закуски и т.д.
+
+ШАГ 1 — SCHEMA: изменить файл backend/prisma/schema.prisma
+  В модели Product добавить поле category после isAvailable:
+    category    String?
+
+  ИТОГОВАЯ модель Product:
+    model Product {
+      id          String      @id @default(cuid())
+      name        String
+      description String?
+      price       Float
+      imageUrl    String?
+      isAvailable Boolean     @default(true)
+      category    String?
+      businessId  String
+      business    Business    @relation(fields: [businessId], references: [id])
+      orderItems  OrderItem[]
+    }
+
+  После изменения схемы:
+    cd backend && npm run db:migrate && npm run db:generate
+
+ШАГ 2 — BACKEND: изменить файл backend/src/routes/business.js
+
+  А) В POST /api/products добавить category:
+    БЫЛО:  const { name, description, price, imageUrl } = req.body;
+    СТАЛО: const { name, description, price, imageUrl, category } = req.body;
+
+    В data добавить: category: category || null,
+
+  Б) В PATCH /api/products/:id добавить category:
+    БЫЛО:  const { name, description, price, imageUrl, isAvailable } = req.body;
+    СТАЛО: const { name, description, price, imageUrl, isAvailable, category } = req.body;
+
+    В data добавить строку:
+      ...(category !== undefined && { category }),
+
+ШАГ 3 — FRONTEND Products.jsx: поле category в формах
+
+  А) В useState form добавить category:
+    БЫЛО:  { name: '', description: '', price: '', imageUrl: '' }
+    СТАЛО: { name: '', description: '', price: '', imageUrl: '', category: '' }
+
+  Б) В useState editForm добавить category:
+    БЫЛО:  { name: '', description: '', price: '', imageUrl: '' }
+    СТАЛО: { name: '', description: '', price: '', imageUrl: '', category: '' }
+
+  В) В startEdit добавить category:
+    БЫЛО:  setEditForm({ name: product.name, description: product.description || '', price: String(product.price), imageUrl: product.imageUrl || '' });
+    СТАЛО: setEditForm({ name: product.name, description: product.description || '', price: String(product.price), imageUrl: product.imageUrl || '', category: product.category || '' });
+
+  Г) В api.post и api.patch добавить category: form.category || null
+
+  Д) В форму добавления добавить поле:
+    <div className="form-group" style={{ marginBottom: 0 }}>
+      <label>Категория</label>
+      <input value={form.category} onChange={set('category')} placeholder="Горячее, Напитки, Десерты..." />
+    </div>
+
+  Е) В форму редактирования добавить поле category аналогично.
+
+  Ж) В отображении продуктов показывать категорию:
+    {p.category && (
+      <span style={{ fontSize: '11px', color: '#6b7280', background: '#f3f4f6', padding: '2px 8px', borderRadius: '4px' }}>
+        {p.category}
+      </span>
+    )}
+
+ШАГ 4 — FRONTEND Menu.jsx (страница покупателя): группировка по категориям
+  Файл: frontend/src/pages/customer/Menu.jsx
+  Вместо плоского списка продуктов группировать их:
+
+    // Сгруппировать продукты по категории
+    const grouped = products.reduce((acc, p) => {
+      const key = p.category || 'Остальное';
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(p);
+      return acc;
+    }, {});
+
+  И рендерить с заголовками:
+    {Object.entries(grouped).map(([category, items]) => (
+      <div key={category}>
+        <h3 style={{ fontSize: '16px', fontWeight: 700, margin: '20px 0 10px' }}>{category}</h3>
+        {items.map(p => ( /* карточка продукта */ ))}
+      </div>
+    ))}
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ЗАДАЧА 5: Отклонение заказа бизнесом (REJECTED статус)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ПРОБЛЕМА:
+  Бизнес видит заказы только в read-only режиме. Нет возможности отклонить
+  заказ, который невозможно выполнить (нет курьера, нет ингредиентов и т.д.).
+  Текущие статусы: CREATED → ACCEPTED → DELIVERING → DONE / CANCELLED (только покупатель).
+
+ШАГ 1 — SCHEMA: добавить статус REJECTED в enum OrderStatus
+  Файл: backend/prisma/schema.prisma
+  БЫЛО:
+    enum OrderStatus {
+      CREATED
+      ACCEPTED
+      DELIVERING
+      DONE
+      CANCELLED
+    }
+  СТАЛО:
+    enum OrderStatus {
+      CREATED
+      ACCEPTED
+      DELIVERING
+      DONE
+      CANCELLED
+      REJECTED
+    }
+
+  После изменения схемы:
+    cd backend && npm run db:migrate && npm run db:generate
+
+ШАГ 2 — BACKEND: добавить роут отклонения в backend/src/routes/business.js
+  Вставить ПЕРЕД строкой module.exports (строка 208):
+
+  // POST /api/business/my/orders/:id/reject — reject order (BUSINESS only, only CREATED orders)
+  router.post('/business/my/orders/:id/reject', verifyToken, requireRole('BUSINESS'), async (req, res) => {
+    try {
+      const business = await prisma.business.findUnique({ where: { ownerId: req.user.id } });
+      if (!business) return res.status(404).json({ error: 'No business found' });
+
+      const updated = await prisma.order.updateMany({
+        where: { id: req.params.id, businessId: business.id, status: 'CREATED' },
+        data: { status: 'REJECTED' },
+      });
+      if (updated.count === 0) return res.status(400).json({ error: 'Cannot reject this order' });
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to reject order' });
+    }
+  });
+
+ШАГ 3 — FRONTEND Dashboard.jsx: добавить кнопку отклонения и статус REJECTED
+
+  А) В объект STATUS_LABELS (строка 6) добавить REJECTED:
+    БЫЛО:
+      const STATUS_LABELS = {
+        CREATED: ['badge-created', 'Ожидает курьера'],
+        ACCEPTED: ['badge-accepted', 'Курьер принял'],
+        DELIVERING: ['badge-delivering', 'Доставляется'],
+        DONE: ['badge-done', 'Выполнен'],
+      };
+    СТАЛО:
+      const STATUS_LABELS = {
+        CREATED: ['badge-created', 'Ожидает курьера'],
+        ACCEPTED: ['badge-accepted', 'Курьер принял'],
+        DELIVERING: ['badge-delivering', 'Доставляется'],
+        DONE: ['badge-done', 'Выполнен'],
+        CANCELLED: ['badge-done', 'Отменён'],
+        REJECTED: ['badge-danger', 'Отклонён'],
+      };
+
+  Б) Добавить функцию handleReject после функции loadAll:
+    async function handleReject(orderId) {
+      if (!confirm('Отклонить этот заказ?')) return;
+      try {
+        await api.post(`/business/my/orders/${orderId}/reject`);
+        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'REJECTED' } : o));
+      } catch (err) {
+        alert(err.response?.data?.error || 'Ошибка отклонения');
+      }
+    }
+
+  В) В карточке заказа (после блока с адресом и курьером) добавить кнопку для CREATED:
+    {order.status === 'CREATED' && (
+      <div style={{ marginTop: '8px' }}>
+        <button
+          onClick={() => handleReject(order.id)}
+          className="btn-danger"
+          style={{ fontSize: '12px', padding: '4px 12px' }}
+        >
+          Отклонить заказ
+        </button>
+      </div>
+    )}
+
+  Г) В объект counts добавить счётчик REJECTED:
+    БЫЛО:
+      const counts = {
+        CREATED: orders.filter(o => o.status === 'CREATED').length,
+        ACCEPTED: orders.filter(o => o.status === 'ACCEPTED').length,
+        DELIVERING: orders.filter(o => o.status === 'DELIVERING').length,
+        DONE: orders.filter(o => o.status === 'DONE').length,
+      };
+    СТАЛО:
+      const counts = {
+        CREATED: orders.filter(o => o.status === 'CREATED').length,
+        ACCEPTED: orders.filter(o => o.status === 'ACCEPTED').length,
+        DELIVERING: orders.filter(o => o.status === 'DELIVERING').length,
+        DONE: orders.filter(o => o.status === 'DONE').length,
+        REJECTED: orders.filter(o => o.status === 'REJECTED').length,
+      };
+
+  Д) Добавить карточку счётчика REJECTED в stats row:
+    { label: 'Отклонены', count: counts.REJECTED, color: '#fee2e2' },
+
+  Е) В frontend/src/index.css (или App.css) добавить стиль badge-danger если его нет:
+    .badge-danger { background: #fee2e2; color: #991b1b; }
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ЗАДАЧА 6: Фильтрация заказов в дашборде по статусу
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ПРОБЛЕМА:
+  Все заказы выводятся одним списком без фильтрации.
+  При большом числе заказов нельзя быстро найти нужные (например, только новые).
+  Счётчики по статусам есть, но не кликабельны.
+
+ШАГ — только FRONTEND: изменить файл frontend/src/pages/business/Dashboard.jsx
+  Правки в backend не нужны — он уже отдаёт все заказы.
+
+  А) Добавить state для активного фильтра после строки 23 (после setNeedCreate):
+    const [filter, setFilter] = useState('ALL');
+
+  Б) После объекта counts (строка 100) добавить отфильтрованный список:
+    const filteredOrders = filter === 'ALL' ? orders : orders.filter(o => o.status === filter);
+
+  В) Заменить stats row (строки 112-124) чтобы счётчики стали кликабельными фильтрами:
+    БЫЛО:
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '10px', marginBottom: '24px' }}>
+        {[
+          { label: 'Новые', count: counts.CREATED, color: '#dbeafe' },
+          { label: 'Приняты', count: counts.ACCEPTED, color: '#fef3c7' },
+          { label: 'В доставке', count: counts.DELIVERING, color: '#d1fae5' },
+          { label: 'Выполнены', count: counts.DONE, color: '#f3f4f6' },
+        ].map(({ label, count, color }) => (
+          <div key={label} className="card" style={{ background: color, textAlign: 'center', padding: '12px' }}>
+            <p style={{ fontSize: '28px', fontWeight: 700 }}>{count}</p>
+            <p style={{ fontSize: '12px', color: '#374151' }}>{label}</p>
+          </div>
+        ))}
+      </div>
+
+    СТАЛО:
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '10px', marginBottom: '24px' }}>
+        {[
+          { label: 'Все', count: orders.length, color: '#f9fafb', status: 'ALL' },
+          { label: 'Новые', count: counts.CREATED, color: '#dbeafe', status: 'CREATED' },
+          { label: 'Приняты', count: counts.ACCEPTED, color: '#fef3c7', status: 'ACCEPTED' },
+          { label: 'В доставке', count: counts.DELIVERING, color: '#d1fae5', status: 'DELIVERING' },
+          { label: 'Выполнены', count: counts.DONE, color: '#f3f4f6', status: 'DONE' },
+          { label: 'Отклонены', count: counts.REJECTED, color: '#fee2e2', status: 'REJECTED' },
+        ].map(({ label, count, color, status }) => (
+          <div
+            key={label}
+            className="card"
+            onClick={() => setFilter(status)}
+            style={{
+              background: color,
+              textAlign: 'center',
+              padding: '12px',
+              cursor: 'pointer',
+              outline: filter === status ? '2px solid #2563eb' : 'none',
+              transition: 'outline 0.1s',
+            }}
+          >
+            <p style={{ fontSize: '28px', fontWeight: 700 }}>{count}</p>
+            <p style={{ fontSize: '12px', color: '#374151' }}>{label}</p>
+          </div>
+        ))}
+      </div>
+
+  Г) Заменить строку с orders.length в заголовке списка:
+    БЫЛО:  Заказы ({orders.length})
+    СТАЛО: Заказы ({filteredOrders.length}{filter !== 'ALL' ? ` из ${orders.length}` : ''})
+
+  Д) Заменить orders.map на filteredOrders.map в рендере карточек:
+    БЫЛО:  {orders.map(order => (
+    СТАЛО: {filteredOrders.map(order => (
+
+  Е) Обновить условие пустого состояния:
+    БЫЛО:  {orders.length === 0 && (
+    СТАЛО: {filteredOrders.length === 0 && (
+    Текст: {filter === 'ALL' ? 'Заказов пока нет.' : 'Нет заказов с таким статусом.'}
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ЗАДАЧА 7: Аналитика / статистика бизнеса
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ПРОБЛЕМА:
+  Нет страницы с цифрами: общая выручка, количество выполненных заказов,
+  топ популярных продуктов, средний чек, заказы по дням.
+
+ШАГ 1 — BACKEND: добавить роут статистики в backend/src/routes/business.js
+  Вставить ПЕРЕД module.exports (строка 208):
+
+  // GET /api/business/my/stats — analytics for business owner
+  router.get('/business/my/stats', verifyToken, requireRole('BUSINESS'), async (req, res) => {
+    try {
+      const business = await prisma.business.findUnique({ where: { ownerId: req.user.id } });
+      if (!business) return res.status(404).json({ error: 'No business found' });
+
+      const [totalOrders, doneOrders, revenueAgg, byStatus, topItems] = await Promise.all([
+        prisma.order.count({ where: { businessId: business.id } }),
+        prisma.order.count({ where: { businessId: business.id, status: 'DONE' } }),
+        prisma.order.aggregate({
+          where: { businessId: business.id, status: 'DONE' },
+          _sum: { totalPrice: true },
+          _avg: { totalPrice: true },
+        }),
+        prisma.order.groupBy({
+          by: ['status'],
+          where: { businessId: business.id },
+          _count: { _all: true },
+        }),
+        prisma.orderItem.groupBy({
+          by: ['productId'],
+          where: { order: { businessId: business.id } },
+          _sum: { quantity: true },
+          orderBy: { _sum: { quantity: 'desc' } },
+          take: 5,
+        }),
+      ]);
+
+      // Обогатить топ продуктов именами
+      const productIds = topItems.map(i => i.productId);
+      const products = await prisma.product.findMany({ where: { id: { in: productIds } } });
+      const productMap = Object.fromEntries(products.map(p => [p.id, p.name]));
+
+      res.json({
+        totalOrders,
+        doneOrders,
+        revenue: revenueAgg._sum.totalPrice || 0,
+        avgCheck: revenueAgg._avg.totalPrice || 0,
+        byStatus: Object.fromEntries(byStatus.map(s => [s.status, s._count._all])),
+        topProducts: topItems.map(i => ({
+          name: productMap[i.productId] || i.productId,
+          quantity: i._sum.quantity,
+        })),
+      });
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to fetch stats' });
+    }
+  });
+
+ШАГ 2 — FRONTEND: создать новый файл frontend/src/pages/business/BusinessStats.jsx
+
+  Содержимое файла:
+  ─────────────────────────────────────────────────────────────────
+  import { useEffect, useState } from 'react';
+  import api from '../../api/client';
+
+  export default function BusinessStats() {
+    const [stats, setStats] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+
+    useEffect(() => {
+      api.get('/business/my/stats')
+        .then(r => setStats(r.data))
+        .catch(() => setError('Не удалось загрузить статистику'))
+        .finally(() => setLoading(false));
+    }, []);
+
+    if (loading) return <div className="page"><p>Загрузка...</p></div>;
+    if (error) return <div className="page"><div className="error-msg">{error}</div></div>;
+
+    return (
+      <div className="page">
+        <h1 className="page-title">Аналитика</h1>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '12px', marginBottom: '24px' }}>
+          {[
+            { label: 'Всего заказов', value: stats.totalOrders, color: '#dbeafe' },
+            { label: 'Выполнено', value: stats.doneOrders, color: '#d1fae5' },
+            { label: 'Выручка', value: `${stats.revenue.toFixed(0)} ₽`, color: '#fef3c7' },
+            { label: 'Средний чек', value: `${stats.avgCheck.toFixed(0)} ₽`, color: '#f3f4f6' },
+          ].map(({ label, value, color }) => (
+            <div key={label} className="card" style={{ background: color, textAlign: 'center', padding: '16px' }}>
+              <p style={{ fontSize: '26px', fontWeight: 700 }}>{value}</p>
+              <p style={{ fontSize: '12px', color: '#374151', marginTop: '4px' }}>{label}</p>
+            </div>
+          ))}
+        </div>
+
+        {stats.topProducts.length > 0 && (
+          <div className="card" style={{ marginBottom: '24px' }}>
+            <h2 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '14px' }}>Топ продуктов</h2>
+            {stats.topProducts.map((p, i) => (
+              <div key={p.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: i < stats.topProducts.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
+                <span style={{ fontSize: '14px' }}>#{i + 1} {p.name}</span>
+                <span style={{ fontSize: '14px', fontWeight: 600, color: '#2563eb' }}>{p.quantity} шт.</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="card">
+          <h2 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '14px' }}>Заказы по статусам</h2>
+          {Object.entries(stats.byStatus).map(([status, count]) => (
+            <div key={status} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}>
+              <span style={{ fontSize: '14px', color: '#6b7280' }}>{status}</span>
+              <span style={{ fontSize: '14px', fontWeight: 600 }}>{count}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  ─────────────────────────────────────────────────────────────────
+
+ШАГ 3 — ROUTING: подключить страницу в App.jsx
+  Файл: frontend/src/App.jsx
+
+  А) Добавить импорт:
+    import BusinessStats from './pages/business/BusinessStats';
+
+  Б) Добавить маршрут в блок BUSINESS routes:
+    <Route path="/business/stats" element={<ProtectedRoute roles={['BUSINESS']}><BusinessStats /></ProtectedRoute>} />
+
+ШАГ 4 — NAVBAR: добавить ссылку в навигацию
+  Найти компонент навбара (frontend/src/components/Navbar.jsx или аналог).
+  В блок ссылок для BUSINESS роли добавить:
+    <Link to="/business/stats">Аналитика</Link>
+
+
+================================================================================
+ПОРЯДОК РЕАЛИЗАЦИИ (по сложности — от простого к сложному):
+  1. ЗАДАЧА 6 — Фильтрация заказов (только frontend, ~20 мин)
+  2. ЗАДАЧА 1 — Редактирование торговых точек (backend + frontend, ~30 мин)
+  3. ЗАДАЧА 5 — Отклонение заказа (schema + backend + frontend, ~40 мин)
+  4. ЗАДАЧА 2 — Фотографии продуктов (schema + backend + frontend, ~40 мин)
+  5. ЗАДАЧА 3 — Доступность продукта (schema + backend + frontend, ~45 мин)
+  6. ЗАДАЧА 4 — Категории меню (schema + backend + frontend + Menu.jsx, ~1 час)
+  7. ЗАДАЧА 7 — Аналитика (backend + новая страница + роутинг, ~1 час)
+
+ВАЖНО: Задачи 2, 3, 4 меняют схему БД — их удобно делать вместе за один
+  npm run db:migrate, добавив все поля сразу. Задача 5 тоже требует миграции.
+================================================================================

@@ -122,6 +122,7 @@ input:focus, select:focus, textarea:focus {
 .badge-delivering { background: #d1fae5; color: #065f46; }
 .badge-done     { background: #f3f4f6; color: #374151; }
 .badge-cancelled { background: #fee2e2; color: #991b1b; }
+.badge-danger    { background: #fee2e2; color: #991b1b; }
 
 .error-msg {
   background: #fee2e2;
