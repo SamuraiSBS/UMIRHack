@@ -2,20 +2,140 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../api/client';
 
-// Status label badge
-function StatusBadge({ status }) {
-  const map = {
-    CREATED: ['badge-created', 'Создан'],
-    ACCEPTED: ['badge-accepted', 'Принят'],
-    DELIVERING: ['badge-delivering', 'Доставляется'],
-    DONE: ['badge-done', 'Доставлен'],
-  };
-  const [cls, label] = map[status] || ['badge-done', status];
-  return <span className={`badge ${cls}`}>{label}</span>;
+// Product modal (Yandex Food style)
+function ProductModal({ product, qty, onClose, onAdd, onChangeQty }) {
+  useEffect(() => {
+    function onKey(e) { if (e.key === 'Escape') onClose(); }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0,
+        background: 'rgba(0,0,0,0.75)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 1000,
+        padding: '20px',
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: '#1C1C1C',
+          borderRadius: '20px',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          maxWidth: '640px',
+          width: '100%',
+          position: 'relative',
+          maxHeight: '90vh',
+          overflowY: 'auto',
+        }}
+      >
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          style={{
+            position: 'absolute', top: '14px', right: '14px',
+            background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%',
+            width: '32px', height: '32px', fontSize: '18px', color: '#FFFFFF',
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 1,
+          }}
+        >×</button>
+
+        {/* Image */}
+        <div style={{
+          width: '100%',
+          height: '200px',
+          flexShrink: 0,
+          background: '#2A2A2A',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+          {product.imageUrl ? (
+            <img
+              src={product.imageUrl}
+              alt={product.name}
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              onError={e => { e.target.style.display = 'none'; }}
+            />
+          ) : (
+            <span style={{ fontSize: '64px' }}>🍽️</span>
+          )}
+        </div>
+
+        {/* Info */}
+        <div style={{ padding: '28px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', flex: 1, minHeight: '260px' }}>
+          <div>
+            <p style={{ fontWeight: 700, fontSize: '18px', color: '#FFFFFF', marginBottom: '6px' }}>
+              {product.name}
+              {product.weight && <span style={{ fontWeight: 400, color: '#9E9E9E', fontSize: '15px' }}> {product.weight}</span>}
+            </p>
+            {product.description && (
+              <p style={{ color: '#9E9E9E', fontSize: '14px', marginBottom: '12px', lineHeight: 1.5 }}>{product.description}</p>
+            )}
+          </div>
+
+          <div>
+            <p style={{ fontSize: '24px', fontWeight: 700, color: '#FFFFFF', marginBottom: '16px' }}>{product.price} ₽</p>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              {qty > 0 ? (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#2A2A2A', borderRadius: '12px', padding: '4px' }}>
+                    <button
+                      onClick={() => onChangeQty(product.id, -1)}
+                      style={{
+                        background: '#3A3A3A', border: 'none', borderRadius: '8px',
+                        width: '36px', height: '36px', fontSize: '20px', color: '#FFFFFF',
+                        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}
+                    >−</button>
+                    <span style={{ minWidth: '36px', textAlign: 'center', fontWeight: 700, fontSize: '16px', color: '#FFFFFF' }}>{qty}</span>
+                    <button
+                      onClick={() => onChangeQty(product.id, +1)}
+                      style={{
+                        background: '#3A3A3A', border: 'none', borderRadius: '8px',
+                        width: '36px', height: '36px', fontSize: '20px', color: '#FFFFFF',
+                        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}
+                    >+</button>
+                  </div>
+                  <button
+                    onClick={() => { onAdd(); onClose(); }}
+                    style={{
+                      background: '#FFD600', color: '#1C1C1C', border: 'none',
+                      borderRadius: '12px', padding: '10px 20px', fontWeight: 700, fontSize: '15px',
+                      cursor: 'pointer', flex: 1,
+                    }}
+                  >Добавить</button>
+                </>
+              ) : (
+                <button
+                  onClick={() => { onChangeQty(product.id, +1); }}
+                  style={{
+                    background: '#FFD600', color: '#1C1C1C', border: 'none',
+                    borderRadius: '12px', padding: '12px 24px', fontWeight: 700, fontSize: '15px',
+                    cursor: 'pointer', width: '100%',
+                  }}
+                >Добавить</button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function Menu() {
-  const { id } = useParams(); // businessId
+  const { id } = useParams();
   const navigate = useNavigate();
 
   const [business, setBusiness] = useState(null);
@@ -32,6 +152,8 @@ export default function Menu() {
   const [ordering, setOrdering] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [modalProduct, setModalProduct] = useState(null);
+  const [showOrderForm, setShowOrderForm] = useState(false);
 
   useEffect(() => {
     try {
@@ -100,6 +222,7 @@ export default function Menu() {
     .filter(Boolean);
 
   const total = cartItems.reduce((sum, { quantity, product }) => sum + product.price * quantity, 0);
+  const cartCount = cartItems.reduce((sum, { quantity }) => sum + quantity, 0);
 
   async function handleOrder(e) {
     e.preventDefault();
@@ -109,10 +232,6 @@ export default function Menu() {
     setError('');
     setOrdering(true);
     try {
-      if (saveAddress && newAddressLabel.trim()) {
-        const saved = await api.post('/addresses', { label: newAddressLabel.trim(), address: address.trim() });
-        setSavedAddresses(prev => [...prev, saved.data]);
-      }
       await api.post('/orders', {
         businessId: id,
         address: address.trim(),
@@ -123,6 +242,7 @@ export default function Menu() {
       setSuccess('Заказ оформлен! Переходим к вашим заказам...');
       setCart({});
       localStorage.removeItem(`cart_${id}`);
+      setShowOrderForm(false);
       setTimeout(() => navigate('/orders'), 1500);
     } catch (err) {
       setError(err.response?.data?.error || 'Ошибка оформления заказа');
@@ -131,7 +251,20 @@ export default function Menu() {
     }
   }
 
-  if (loading) return <div className="page"><p>Загрузка меню...</p></div>;
+  if (loading) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', color: '#9E9E9E', fontSize: '16px' }}>
+      Загрузка меню...
+    </div>
+  );
+
+  const grouped = products.reduce((acc, p) => {
+    const key = p.category || 'Меню';
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(p);
+    return acc;
+  }, {});
+
+  const deliveryCost = distanceKm ? Math.max(50, Math.round(50 + Number(distanceKm) * 15)) : 0;
 
   return (
     <div className="page">
@@ -154,152 +287,245 @@ export default function Menu() {
         </div>
       )}
 
-      {products.length === 0 && <p className="text-gray">Меню пока пусто.</p>}
-
-      {(() => {
-        const grouped = products.reduce((acc, p) => {
-          const key = p.category || 'Остальное';
-          if (!acc[key]) acc[key] = [];
-          acc[key].push(p);
-          return acc;
-        }, {});
-        return Object.entries(grouped).map(([category, items]) => (
-          <div key={category}>
-            {Object.keys(grouped).length > 1 && (
-              <h3 style={{ fontSize: '16px', fontWeight: 700, margin: '20px 0 10px' }}>{category}</h3>
-            )}
-            <div className="grid grid-2">
-              {items.map(p => (
-                <div key={p.id} className="card">
-                  {p.imageUrl && (
+      {/* Products by category */}
+      {Object.entries(grouped).map(([category, items]) => (
+        <div key={category} style={{ marginBottom: '36px' }}>
+          {Object.keys(grouped).length > 1 && (
+            <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#FFFFFF', marginBottom: '16px' }}>{category}</h2>
+          )}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+            gap: '12px',
+          }}>
+            {items.map(p => (
+              <div
+                key={p.id}
+                onClick={() => setModalProduct(p)}
+                style={{
+                  background: '#FFFFFF',
+                  borderRadius: '16px',
+                  overflow: 'hidden',
+                  cursor: 'pointer',
+                  position: 'relative',
+                  transition: 'transform 0.15s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                onMouseLeave={e => e.currentTarget.style.transform = ''}
+              >
+                {/* Product image area */}
+                <div style={{
+                  height: '160px',
+                  background: '#F5F5F5',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  position: 'relative',
+                }}>
+                  {p.imageUrl ? (
                     <img
                       src={p.imageUrl}
                       alt={p.name}
-                      style={{ width: '100%', height: '140px', objectFit: 'cover', borderRadius: '8px', marginBottom: '8px' }}
-                      onError={e => { e.target.style.display = 'none'; }}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      onError={e => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
                     />
+                  ) : null}
+                  <div style={{
+                    display: p.imageUrl ? 'none' : 'flex',
+                    alignItems: 'center', justifyContent: 'center',
+                    width: '100%', height: '100%', fontSize: '52px',
+                  }}>🍽️</div>
+
+                  {/* Add button in corner */}
+                  <button
+                    onClick={e => { e.stopPropagation(); changeQty(p.id, +1); }}
+                    style={{
+                      position: 'absolute', bottom: '10px', right: '10px',
+                      width: '34px', height: '34px', borderRadius: '50%',
+                      background: '#FFFFFF',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                      border: 'none', fontSize: '22px', color: '#1C1C1C',
+                      cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      lineHeight: 1,
+                    }}
+                  >+</button>
+
+                  {/* Cart badge */}
+                  {cart[p.id] > 0 && (
+                    <div style={{
+                      position: 'absolute', top: '8px', right: '8px',
+                      background: '#FFD600', color: '#1C1C1C',
+                      borderRadius: '50%', width: '22px', height: '22px',
+                      fontSize: '12px', fontWeight: 700,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>{cart[p.id]}</div>
                   )}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div>
-                      <h3 style={{ fontSize: '15px', fontWeight: 600 }}>{p.name}</h3>
-                      {p.description && <p className="text-sm text-gray" style={{ marginTop: '2px' }}>{p.description}</p>}
-                      <p style={{ marginTop: '8px', fontWeight: 700, color: '#2563eb' }}>{p.price} ₽</p>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                      {cart[p.id] ? (
-                        <>
-                          <button onClick={() => changeQty(p.id, -1)} className="btn-outline"
-                            style={{ padding: '4px 10px', fontSize: '16px' }}>−</button>
-                          <span style={{ fontWeight: 700, minWidth: '20px', textAlign: 'center' }}>{cart[p.id]}</span>
-                          <button onClick={() => changeQty(p.id, +1)} className="btn-primary"
-                            style={{ padding: '4px 10px', fontSize: '16px' }}>+</button>
-                        </>
-                      ) : (
-                        <button onClick={() => changeQty(p.id, +1)} className="btn-primary"
-                          style={{ padding: '6px 14px', fontSize: '13px' }}>Добавить</button>
-                      )}
-                    </div>
-                  </div>
                 </div>
-              ))}
-            </div>
+
+                {/* Product info */}
+                <div style={{ padding: '10px 12px 12px' }}>
+                  <p style={{ fontWeight: 700, fontSize: '13px', color: '#1C1C1C', marginBottom: '2px', lineHeight: 1.3 }}>{p.price} ₽</p>
+                  <p style={{ fontSize: '12px', color: '#1C1C1C', lineHeight: 1.3, marginBottom: '1px' }}>{p.name}</p>
+                  {p.description && (
+                    <p style={{ fontSize: '11px', color: '#9E9E9E', lineHeight: 1.3 }}>{p.description.slice(0, 50)}{p.description.length > 50 ? '…' : ''}</p>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
-        ));
-      })()}
+        </div>
+      ))}
 
-      {/* Cart / Order form */}
-      {cartItems.length > 0 && (
-        <div className="card" style={{ marginTop: '24px' }}>
-          <h2 style={{ fontSize: '17px', fontWeight: 700, marginBottom: '12px' }}>Корзина</h2>
+      {/* Floating cart button */}
+      {cartCount > 0 && !showOrderForm && (
+        <div style={{
+          position: 'fixed', bottom: '16px', left: '50%', transform: 'translateX(-50%)',
+          zIndex: 200, width: 'calc(100% - 32px)', maxWidth: '480px',
+        }}>
+          <button
+            onClick={() => setShowOrderForm(true)}
+            style={{
+              background: '#FFD600', color: '#1C1C1C',
+              border: 'none', borderRadius: '16px',
+              padding: '16px 24px',
+              fontSize: '16px', fontWeight: 700,
+              cursor: 'pointer',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px',
+              whiteSpace: 'nowrap',
+              width: '100%',
+            }}
+          >
+            <span style={{
+              background: '#1C1C1C', color: '#FFD600',
+              borderRadius: '8px', padding: '2px 8px', fontSize: '14px', fontWeight: 700,
+            }}>{cartCount}</span>
+            Перейти в корзину · {total.toFixed(0)} ₽
+          </button>
+        </div>
+      )}
 
-          {cartItems.map(({ productId, quantity, product }) => (
-            <div key={productId} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '14px' }}>
-              <span>{product.name} × {quantity}</span>
-              <span>{(product.price * quantity).toFixed(0)} ₽</span>
+      {/* Order form (slide up when cart opened) */}
+      {showOrderForm && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+          zIndex: 500, display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+        }} onClick={() => setShowOrderForm(false)}>
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: '#1C1C1C', borderRadius: '20px 20px 0 0',
+              padding: '28px 24px 40px',
+              width: '100%', maxWidth: '560px',
+              maxHeight: '90vh', overflowY: 'auto',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#FFFFFF' }}>Корзина</h2>
+              <button onClick={() => setShowOrderForm(false)} style={{
+                background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%',
+                width: '32px', height: '32px', fontSize: '18px', color: '#FFFFFF', cursor: 'pointer',
+              }}>×</button>
             </div>
-          ))}
 
-          <hr style={{ margin: '10px 0', borderColor: '#e5e7eb' }} />
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, marginBottom: '16px' }}>
-            <span>Итого</span>
-            <span>{total.toFixed(0)} ₽</span>
-          </div>
+            {/* Cart items */}
+            {cartItems.map(({ productId, quantity, product }) => (
+              <div key={productId} style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                marginBottom: '12px',
+              }}>
+                <span style={{ color: '#CCCCCC', fontSize: '14px', flex: 1 }}>{product.name}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button onClick={() => changeQty(productId, -1)} style={{
+                    background: '#2A2A2A', border: 'none', borderRadius: '50%',
+                    width: '28px', height: '28px', color: '#FFFFFF', cursor: 'pointer', fontSize: '16px',
+                  }}>−</button>
+                  <span style={{ color: '#FFFFFF', fontWeight: 600, minWidth: '20px', textAlign: 'center' }}>{quantity}</span>
+                  <button onClick={() => changeQty(productId, +1)} style={{
+                    background: '#2A2A2A', border: 'none', borderRadius: '50%',
+                    width: '28px', height: '28px', color: '#FFFFFF', cursor: 'pointer', fontSize: '16px',
+                  }}>+</button>
+                  <span style={{ color: '#FFFFFF', fontWeight: 600, minWidth: '60px', textAlign: 'right' }}>
+                    {(product.price * quantity).toFixed(0)} ₽
+                  </span>
+                </div>
+              </div>
+            ))}
 
-          {error && <div className="error-msg">{error}</div>}
-          {success && <div style={{ background: '#d1fae5', color: '#065f46', padding: '10px 14px', borderRadius: '8px', marginBottom: '12px', fontSize: '14px' }}>{success}</div>}
-
-          <form onSubmit={handleOrder}>
-            <div className="form-group">
-              <label>Адрес доставки</label>
-              {savedAddresses.length > 0 && (
-                <select
-                  onChange={e => { if (e.target.value) setAddress(e.target.value); }}
-                  style={{ marginBottom: '8px' }}
-                  defaultValue=""
-                >
-                  <option value="">— Выбрать сохранённый адрес —</option>
-                  {savedAddresses.map(a => (
-                    <option key={a.id} value={a.address}>{a.label}: {a.address}</option>
-                  ))}
-                </select>
-              )}
-              <input
-                value={address}
-                onChange={e => setAddress(e.target.value)}
-                placeholder="ул. Пушкина, д. 1, кв. 10"
-                required
-              />
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px', fontSize: '13px', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={saveAddress}
-                  onChange={e => setSaveAddress(e.target.checked)}
-                  style={{ width: 'auto', margin: 0 }}
-                />
-                Сохранить адрес
-              </label>
-              {saveAddress && (
-                <input
-                  value={newAddressLabel}
-                  onChange={e => setNewAddressLabel(e.target.value)}
-                  placeholder='Название: "Дом", "Работа"...'
-                  style={{ marginTop: '6px' }}
-                />
-              )}
+            <hr style={{ borderColor: '#3A3A3A', margin: '16px 0' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '16px', color: '#FFFFFF', marginBottom: '20px' }}>
+              <span>Итого</span>
+              <span>{(total + deliveryCost).toFixed(0)} ₽</span>
             </div>
-            {tradingPoints.length > 0 && (
-              <div className="form-group">
-                <label>Точка отправки (откуда забрать)</label>
-                <select value={tradingPointId} onChange={e => setTradingPointId(e.target.value)}>
-                  <option value="">— Выберите точку —</option>
-                  {tradingPoints.map(p => (
-                    <option key={p.id} value={p.id}>{p.name} — {p.address}</option>
-                  ))}
-                </select>
+
+            {error && <div className="error-msg">{error}</div>}
+            {success && (
+              <div style={{ background: '#064e3b', color: '#34d399', padding: '12px 16px', borderRadius: '12px', marginBottom: '12px', fontSize: '14px' }}>
+                {success}
               </div>
             )}
-            <div className="form-group">
-              <label>Расстояние, км (примерно)</label>
-              <input
-                type="number"
-                min="0"
-                step="0.1"
-                value={distanceKm}
-                onChange={e => setDistanceKm(e.target.value)}
-                placeholder="например 3.5"
-              />
-            </div>
-            {distanceKm && (
-              <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '12px' }}>
-                Стоимость доставки: {Math.max(50, Math.round(50 + Number(distanceKm) * 15))} ₽
-              </p>
-            )}
-            <button type="submit" className="btn-primary w-full" disabled={ordering}>
-              {ordering ? 'Оформляем...' : `Заказать на ${total.toFixed(0)} ₽`}
-            </button>
-          </form>
+
+            <form onSubmit={handleOrder}>
+              <div className="form-group">
+                <label>Адрес доставки</label>
+                <input
+                  value={address}
+                  onChange={e => setAddress(e.target.value)}
+                  placeholder="ул. Пушкина, д. 1, кв. 10"
+                  required
+                />
+              </div>
+
+              {tradingPoints.length > 0 && (
+                <div className="form-group">
+                  <label>Точка отправки</label>
+                  <select value={tradingPointId} onChange={e => setTradingPointId(e.target.value)}>
+                    <option value="">— Выберите точку —</option>
+                    {tradingPoints.map(p => (
+                      <option key={p.id} value={p.id}>{p.name} — {p.address}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="form-group">
+                <label>Расстояние, км</label>
+                <input
+                  type="number" min="0" step="0.1"
+                  value={distanceKm}
+                  onChange={e => setDistanceKm(e.target.value)}
+                  placeholder="например 3.5"
+                />
+              </div>
+              {distanceKm && (
+                <p style={{ fontSize: '13px', color: '#9E9E9E', marginBottom: '12px' }}>
+                  Стоимость доставки: {deliveryCost} ₽
+                </p>
+              )}
+
+              <button type="submit" disabled={ordering} style={{
+                background: '#FFD600', color: '#1C1C1C', border: 'none',
+                borderRadius: '14px', padding: '16px', fontWeight: 700, fontSize: '16px',
+                cursor: ordering ? 'not-allowed' : 'pointer',
+                width: '100%', opacity: ordering ? 0.7 : 1,
+              }}>
+                {ordering ? 'Оформляем...' : `Заказать · ${(total + deliveryCost).toFixed(0)} ₽`}
+              </button>
+            </form>
+          </div>
         </div>
+      )}
+
+      {/* Product modal */}
+      {modalProduct && (
+        <ProductModal
+          product={modalProduct}
+          qty={cart[modalProduct.id] || 0}
+          onClose={() => setModalProduct(null)}
+          onAdd={() => setModalProduct(null)}
+          onChangeQty={changeQty}
+        />
       )}
     </div>
   );

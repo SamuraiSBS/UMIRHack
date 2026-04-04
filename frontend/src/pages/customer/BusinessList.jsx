@@ -2,10 +2,43 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../api/client';
 
+// Deterministic "rating" and "delivery time" from business id (for demo)
+function fakeRating(id) {
+  const n = id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  return (4.0 + (n % 10) * 0.1).toFixed(1);
+}
+function fakeReviews(id) {
+  const n = id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  return 50 + (n % 950);
+}
+function fakeDelivery(id) {
+  const n = id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  const base = 10 + (n % 4) * 5;
+  return `${base}–${base + 10} мин`;
+}
+// Gradient placeholder color
+const GRADIENT_COLORS = [
+  ['#FF6B6B', '#FF8E53'],
+  ['#4E54C8', '#8F94FB'],
+  ['#11998E', '#38EF7D'],
+  ['#F953C6', '#B91D73'],
+  ['#F7971E', '#FFD200'],
+  ['#56CCF2', '#2F80ED'],
+  ['#A18CD1', '#FBC2EB'],
+  ['#43E97B', '#38F9D7'],
+];
+function gradientFor(id) {
+  const n = id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  return GRADIENT_COLORS[n % GRADIENT_COLORS.length];
+}
+
+const CATEGORIES = ['Все', 'Бургеры', 'Суши', 'Пицца', 'Вок', 'Паста', 'Завтраки'];
+
 export default function BusinessList() {
   const [businesses, setBusinesses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [activeCategory, setActiveCategory] = useState('Все');
 
   useEffect(() => {
     api.get('/business')
@@ -13,7 +46,11 @@ export default function BusinessList() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="page"><p>Загрузка...</p></div>;
+  if (loading) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', color: '#9E9E9E', fontSize: '16px' }}>
+      Загрузка...
+    </div>
+  );
 
   const q = search.toLowerCase();
   const filtered = businesses.filter(b =>
@@ -23,47 +60,139 @@ export default function BusinessList() {
   );
 
   return (
-    <div className="page">
-      <h1 className="page-title">Рестораны и магазины</h1>
-
-      <div style={{ position: 'relative', marginBottom: '20px' }}>
+    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: 'clamp(12px, 4vw, 24px) clamp(12px, 4vw, 24px) 80px' }}>
+      {/* Search bar */}
+      <div style={{ position: 'relative', marginBottom: '28px' }}>
+        <span style={{
+          position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)',
+          color: '#6B6B6B', fontSize: '18px', pointerEvents: 'none',
+        }}>🔍</span>
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="Поиск по названию или зоне доставки..."
-          style={{ paddingRight: search ? '32px' : undefined }}
+          placeholder="Искать в Еде"
+          style={{
+            background: '#2A2A2A',
+            border: '1px solid #3A3A3A',
+            borderRadius: '12px',
+            padding: '14px 44px',
+            fontSize: '15px',
+            color: '#FFFFFF',
+            width: '100%',
+          }}
         />
         {search && (
           <button
             onClick={() => setSearch('')}
-            style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px', color: '#6b7280' }}
+            style={{
+              position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)',
+              background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', color: '#6B6B6B',
+            }}
           >×</button>
         )}
       </div>
 
+      {/* Category pills */}
+      <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px', marginBottom: '28px', scrollbarWidth: 'none' }}>
+        {CATEGORIES.map(cat => (
+          <button
+            key={cat}
+            onClick={() => setActiveCategory(cat)}
+            style={{
+              background: activeCategory === cat ? '#FFD600' : '#2A2A2A',
+              color: activeCategory === cat ? '#1C1C1C' : '#CCCCCC',
+              border: '1px solid ' + (activeCategory === cat ? '#FFD600' : '#3A3A3A'),
+              borderRadius: '20px',
+              padding: '8px 18px',
+              fontSize: '14px',
+              fontWeight: 600,
+              whiteSpace: 'nowrap',
+              cursor: 'pointer',
+              flexShrink: 0,
+            }}
+          >{cat}</button>
+        ))}
+      </div>
+
+      {/* Section title */}
+      <h2 style={{ fontSize: '22px', fontWeight: 700, marginBottom: '20px', color: '#FFFFFF' }}>
+        Рестораны
+      </h2>
+
       {filtered.length === 0 && (
-        <p className="text-gray">{search ? `Ничего не найдено по запросу «${search}»` : 'Пока нет заведений. Зарегистрируйтесь как бизнес и добавьте своё!'}</p>
+        <p style={{ color: '#9E9E9E', textAlign: 'center', marginTop: '60px', fontSize: '16px' }}>
+          {search ? `Ничего не найдено по запросу «${search}»` : 'Пока нет заведений.'}
+        </p>
       )}
 
-      <div className="grid grid-2">
-        {filtered.map(b => (
-          <Link to={`/shops/${b.id}/menu`} key={b.id}>
-            <div className="card" style={{ cursor: 'pointer', transition: 'box-shadow 0.15s' }}
-              onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.12)'}
-              onMouseLeave={e => e.currentTarget.style.boxShadow = ''}
-            >
-              <div style={{ fontSize: '36px', marginBottom: '8px' }}>🍽️</div>
-              <h2 style={{ fontSize: '17px', fontWeight: 700 }}>{b.name}</h2>
-              {b.description && <p className="text-sm text-gray" style={{ marginTop: '4px' }}>{b.description}</p>}
-              {b.deliveryZone && (
-                <p className="text-sm" style={{ marginTop: '6px', color: '#6b7280' }}>
-                  📍 {b.deliveryZone}
-                </p>
-              )}
-              <p className="text-sm" style={{ marginTop: '12px', color: '#2563eb', fontWeight: 500 }}>Смотреть меню →</p>
-            </div>
-          </Link>
-        ))}
+      {/* Restaurant grid */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+        gap: '16px',
+      }}>
+        {filtered.map(b => {
+          const [c1, c2] = gradientFor(b.id);
+          const rating = fakeRating(b.id);
+          const reviews = fakeReviews(b.id);
+          const delivery = fakeDelivery(b.id);
+
+          return (
+            <Link to={`/shops/${b.id}/menu`} key={b.id}>
+              <div style={{
+                background: '#2A2A2A',
+                borderRadius: '16px',
+                overflow: 'hidden',
+                cursor: 'pointer',
+                transition: 'transform 0.15s, box-shadow 0.15s',
+              }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.transform = 'translateY(-3px)';
+                  e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.5)';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.transform = '';
+                  e.currentTarget.style.boxShadow = '';
+                }}
+              >
+                {/* Image / gradient area */}
+                <div style={{
+                  height: '160px',
+                  background: `linear-gradient(135deg, ${c1}, ${c2})`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '56px',
+                  position: 'relative',
+                }}>
+                  🍽️
+                  {/* Heart icon */}
+                  <div style={{
+                    position: 'absolute', top: '10px', right: '10px',
+                    width: '32px', height: '32px', borderRadius: '50%',
+                    background: 'rgba(0,0,0,0.3)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '14px',
+                  }}>♡</div>
+                </div>
+
+                {/* Info */}
+                <div style={{ padding: '14px' }}>
+                  <p style={{ fontWeight: 700, fontSize: '15px', color: '#FFFFFF', marginBottom: '4px' }}>{b.name}</p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                    <span style={{ color: '#FFD600', fontSize: '13px' }}>★ {rating}</span>
+                    <span style={{ color: '#6B6B6B', fontSize: '12px' }}>({reviews})</span>
+                    <span style={{ color: '#6B6B6B', fontSize: '12px' }}>·</span>
+                    <span style={{ color: '#9E9E9E', fontSize: '12px' }}>⏱ {delivery}</span>
+                  </div>
+                  {b.deliveryZone && (
+                    <p style={{ color: '#6B6B6B', fontSize: '12px' }}>📍 {b.deliveryZone}</p>
+                  )}
+                </div>
+              </div>
+            </Link>
+          );
+        })}
       </div>
     </div>
   );
