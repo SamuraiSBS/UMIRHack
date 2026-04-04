@@ -33,6 +33,8 @@ npm run dev           # Vite dev server with /api proxy → localhost:3001
 cd backend
 npm run db:generate   # regenerate Prisma client after schema changes
 npm run db:migrate    # create + apply a new migration
+```
+
 npx prisma studio     # browser-based DB explorer (not in scripts, but works)
 ```
 
@@ -47,6 +49,7 @@ Express app with JWT auth and Prisma ORM (PostgreSQL).
 - `middleware/auth.js` — `verifyToken` (JWT decode + DB block-check → `req.user`) and `requireRole(...roles)` factory
 - `routes/auth.js` — `POST /api/auth/register`, `POST /api/auth/login`
 - `routes/business.js` — mounted at `/api`; public business/product listing + BUSINESS-only CRUD for their own business, products, trading points, and orders
+- `routes/orders.js` — mounted at `/api/orders`; CUSTOMER creates/cancels orders; COURIER accepts and advances status (`CREATED → ACCEPTED → DELIVERING → DONE`)
 - `routes/orders.js` — mounted at `/api/orders`; CUSTOMER creates/cancels orders; COURIER accepts and advances status
 - `routes/courier.js` — shift start/stop and courier's accepted orders
 - `routes/admin.js` — stats, full user/business/order listing, block toggles (ADMIN role only)
@@ -84,6 +87,7 @@ React 18 + React Router v6 + Axios.
 - `api/client.js` — axios instance with `baseURL: '/api'`; attaches `Authorization: Bearer <token>` from `localStorage`; clears token on 401
 - `contexts/AuthContext.jsx` — `useAuth()` hook; stores `token`/`user` in `localStorage`
 - `components/ProtectedRoute.jsx` — wraps routes with role check, redirects to `/login` if unauthenticated
+- `App.jsx` — role-based routing: `/shops*` (CUSTOMER), `/courier` (COURIER, shows download page), `/business*` (BUSINESS), `/admin*` (ADMIN)
 - `App.jsx` — role-based routing:
 
 | Path | Role | Component |
@@ -99,6 +103,13 @@ React 18 + React Router v6 + Axios.
 | Model | Key fields |
 |---|---|
 | `User` | `role` (ADMIN/COURIER/CUSTOMER/BUSINESS), `isBlocked` |
+| `Business` | one-to-one with `User` (ownerId), has `products`, `orders`, `tradingPoints` |
+| `Product` | belongs to one `Business` |
+| `Order` | `status` enum, `customerId`, `courierId?`, `businessId` |
+| `OrderItem` | join of `Order` × `Product` with `quantity` |
+| `CourierShift` | one-to-one with `User` (courier), `isActive` |
+
+Courier can only accept an order if their shift `isActive`. The accept endpoint uses `updateMany` on `status: 'CREATED'` for atomic race protection.
 | `Business` | one-to-one with `User` (ownerId), has `products`, `orders`, `tradingPoints`, `isBlocked` (admin can block independently of user) |
 | `TradingPoint` | belongs to `Business`, has `name` and `address` |
 | `Product` | belongs to one `Business` |

@@ -114,56 +114,17 @@ router.delete('/business/my/trading-points/:id', verifyToken, requireRole('BUSIN
   }
 });
 
-// PATCH /api/business/my/trading-points/:id — update trading point
-router.patch('/business/my/trading-points/:id', verifyToken, requireRole('BUSINESS'), async (req, res) => {
-  const { name, address } = req.body;
-  if (!name || !address) return res.status(400).json({ error: 'Name and address are required' });
+// GET /api/business/:id/trading-points — list trading points for a business (public)
+router.get('/business/:id/trading-points', async (req, res) => {
   try {
-    const business = await prisma.business.findUnique({ where: { ownerId: req.user.id } });
-    if (!business) return res.status(404).json({ error: 'No business found' });
-
-    const point = await prisma.tradingPoint.findFirst({
-      where: { id: req.params.id, businessId: business.id },
-    });
-    if (!point) return res.status(404).json({ error: 'Trading point not found' });
-
-    const updated = await prisma.tradingPoint.update({
-      where: { id: req.params.id },
-      data: { name, address },
-    });
-    res.json(updated);
+    const points = await prisma.tradingPoint.findMany({ where: { businessId: req.params.id } });
+    res.json(points);
   } catch (err) {
-    res.status(500).json({ error: 'Failed to update trading point' });
+    res.status(500).json({ error: 'Failed to fetch trading points' });
   }
 });
 
-// GET /api/business/my/products — all products for owner (including unavailable)
-router.get('/business/my/products', verifyToken, requireRole('BUSINESS'), async (req, res) => {
-  try {
-    const business = await prisma.business.findUnique({ where: { ownerId: req.user.id } });
-    if (!business) return res.status(404).json({ error: 'No business found' });
-    const products = await prisma.product.findMany({ where: { businessId: business.id } });
-    res.json(products);
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch products' });
-  }
-});
-
-// GET /api/business/:id — get business details with trading points (public)
-router.get('/business/:id', async (req, res) => {
-  try {
-    const business = await prisma.business.findFirst({
-      where: { id: req.params.id, isBlocked: false },
-      select: { id: true, name: true, description: true, deliveryZone: true, tradingPoints: { select: { id: true, name: true, address: true } } },
-    });
-    if (!business) return res.status(404).json({ error: 'Business not found' });
-    res.json(business);
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch business' });
-  }
-});
-
-// GET /api/business/:id/products — list products for a business (public, available only)
+// GET /api/business/:id/products — list products for a business (public)
 router.get('/business/:id/products', async (req, res) => {
   try {
     const products = await prisma.product.findMany({

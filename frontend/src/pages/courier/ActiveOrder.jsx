@@ -113,21 +113,14 @@ export default function ActiveOrder() {
         </div>
       )}
 
-      {/* Completed orders history */}
-      {history.length > 0 && (
-        <>
-          <h2 style={{ fontSize: '16px', fontWeight: 700, margin: '16px 0 10px' }}>Выполненные сегодня</h2>
-          {history.map(o => (
-            <div key={o.id} className="card" style={{ marginBottom: '8px', opacity: 0.8 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '14px', fontWeight: 600 }}>{o.business.name}</span>
-                <span style={{ fontSize: '13px', color: '#16a34a', fontWeight: 700 }}>{o.totalPrice.toFixed(0)} ₽</span>
-              </div>
-              <p className="text-sm text-gray" style={{ marginTop: '2px' }}>{o.address}</p>
-            </div>
-          ))}
-        </>
-      )}
+      {/* Link to completed deliveries history */}
+      <button
+        className="btn-outline w-full"
+        style={{ marginTop: '8px' }}
+        onClick={() => navigate('/courier/history')}
+      >
+        История доставок ({history.length})
+      </button>
     </div>
   );
 }

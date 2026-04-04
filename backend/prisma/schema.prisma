@@ -28,9 +28,10 @@ model User {
   email     String   @unique
   password  String
   name      String?
-  role      Role     @default(CUSTOMER)
-  isBlocked Boolean  @default(false)
-  createdAt DateTime @default(now())
+  role         Role     @default(CUSTOMER)
+  deliveryZone String?
+  isBlocked    Boolean  @default(false)
+  createdAt    DateTime @default(now())
 
   business          Business?
   // Orders placed by this user as a customer
@@ -68,6 +69,7 @@ model TradingPoint {
   address    String
   businessId String
   business   Business @relation(fields: [businessId], references: [id])
+  orders     Order[]
 }
 
 model Product {
@@ -84,19 +86,23 @@ model Product {
 }
 
 model Order {
-  id         String      @id @default(cuid())
-  status     OrderStatus @default(CREATED)
-  address    String
-  totalPrice Float
-  createdAt  DateTime    @default(now())
+  id             String      @id @default(cuid())
+  status         OrderStatus @default(CREATED)
+  address        String
+  totalPrice     Float
+  distanceKm     Float?
+  deliveryFee    Float?
+  createdAt      DateTime    @default(now())
 
-  customerId String
-  courierId  String?
-  businessId String
+  customerId     String
+  courierId      String?
+  businessId     String
+  tradingPointId String?
 
-  customer User     @relation("CustomerOrders", fields: [customerId], references: [id])
-  courier  User?    @relation("CourierOrders", fields: [courierId], references: [id])
-  business Business @relation(fields: [businessId], references: [id])
+  customer     User          @relation("CustomerOrders", fields: [customerId], references: [id])
+  courier      User?         @relation("CourierOrders", fields: [courierId], references: [id])
+  business     Business      @relation(fields: [businessId], references: [id])
+  tradingPoint TradingPoint? @relation(fields: [tradingPointId], references: [id])
 
   items OrderItem[]
 }

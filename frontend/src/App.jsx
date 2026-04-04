@@ -16,6 +16,7 @@ import MyOrders from './pages/customer/MyOrders';
 import ShiftControl from './pages/courier/ShiftControl';
 import AvailableOrders from './pages/courier/AvailableOrders';
 import ActiveOrder from './pages/courier/ActiveOrder';
+import CompletedDeliveries from './pages/courier/CompletedDeliveries';
 
 // Business pages
 import Dashboard from './pages/business/Dashboard';
@@ -56,6 +57,7 @@ export default function App() {
         <Route path="/courier" element={<ProtectedRoute roles={['COURIER']}><ShiftControl /></ProtectedRoute>} />
         <Route path="/courier/orders" element={<ProtectedRoute roles={['COURIER']}><AvailableOrders /></ProtectedRoute>} />
         <Route path="/courier/active" element={<ProtectedRoute roles={['COURIER']}><ActiveOrder /></ProtectedRoute>} />
+        <Route path="/courier/history" element={<ProtectedRoute roles={['COURIER']}><CompletedDeliveries /></ProtectedRoute>} />
 
         {/* Business routes */}
         <Route path="/business" element={<ProtectedRoute roles={['BUSINESS']}><Dashboard /></ProtectedRoute>} />

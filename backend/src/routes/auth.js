@@ -7,7 +7,7 @@ const prisma = new PrismaClient();
 
 // POST /api/auth/register
 router.post('/register', async (req, res) => {
-  const { email, password, name, role } = req.body;
+  const { email, password, name, role, deliveryZone } = req.body;
 
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password are required' });
@@ -22,7 +22,7 @@ router.post('/register', async (req, res) => {
 
     const hashed = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
-      data: { email, password: hashed, name, role: userRole },
+      data: { email, password: hashed, name, role: userRole, deliveryZone: userRole === 'COURIER' ? deliveryZone : undefined },
     });
 
     const token = jwt.sign(

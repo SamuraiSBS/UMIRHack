@@ -20,13 +20,11 @@ export default function Menu() {
 
   const [business, setBusiness] = useState(null);
   const [products, setProducts] = useState([]);
-  const [cart, setCart] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(`cart_${id}`)) || {}; } catch { return {}; }
-  }); // { productId: quantity }
+  const [tradingPoints, setTradingPoints] = useState([]);
+  const [cart, setCart] = useState({}); // { productId: quantity }
   const [address, setAddress] = useState('');
-  const [savedAddresses, setSavedAddresses] = useState([]);
-  const [saveAddress, setSaveAddress] = useState(false);
-  const [newAddressLabel, setNewAddressLabel] = useState('');
+  const [tradingPointId, setTradingPointId] = useState('');
+  const [distanceKm, setDistanceKm] = useState('');
   const [loading, setLoading] = useState(true);
   const [ordering, setOrdering] = useState(false);
   const [error, setError] = useState('');
@@ -40,11 +38,11 @@ export default function Menu() {
     Promise.all([
       api.get(`/business/${id}`).then(r => r.data),
       api.get(`/business/${id}/products`).then(r => r.data),
-      api.get('/addresses').then(r => r.data).catch(() => []),
-    ]).then(([biz, prods, addrs]) => {
+      api.get(`/business/${id}/trading-points`).then(r => r.data).catch(() => []),
+    ]).then(([biz, prods, points]) => {
       setBusiness(biz);
       setProducts(prods);
-      setSavedAddresses(addrs);
+      setTradingPoints(points);
     }).finally(() => setLoading(false));
   }, [id]);
 
@@ -81,6 +79,8 @@ export default function Menu() {
         businessId: id,
         address: address.trim(),
         items: cartItems.map(({ productId, quantity }) => ({ productId, quantity })),
+        ...(tradingPointId && { tradingPointId }),
+        ...(distanceKm && { distanceKm: Number(distanceKm) }),
       });
       setSuccess('Заказ оформлен! Переходим к вашим заказам...');
       setCart({});
@@ -229,6 +229,33 @@ export default function Menu() {
                 />
               )}
             </div>
+            {tradingPoints.length > 0 && (
+              <div className="form-group">
+                <label>Точка отправки (откуда забрать)</label>
+                <select value={tradingPointId} onChange={e => setTradingPointId(e.target.value)}>
+                  <option value="">— Выберите точку —</option>
+                  {tradingPoints.map(p => (
+                    <option key={p.id} value={p.id}>{p.name} — {p.address}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <div className="form-group">
+              <label>Расстояние, км (примерно)</label>
+              <input
+                type="number"
+                min="0"
+                step="0.1"
+                value={distanceKm}
+                onChange={e => setDistanceKm(e.target.value)}
+                placeholder="например 3.5"
+              />
+            </div>
+            {distanceKm && (
+              <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '12px' }}>
+                Стоимость доставки: {Math.max(50, Math.round(50 + Number(distanceKm) * 15))} ₽
+              </p>
+            )}
             <button type="submit" className="btn-primary w-full" disabled={ordering}>
               {ordering ? 'Оформляем...' : `Заказать на ${total.toFixed(0)} ₽`}
             </button>
