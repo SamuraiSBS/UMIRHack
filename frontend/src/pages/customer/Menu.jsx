@@ -426,6 +426,7 @@ export default function Menu() {
               <button onClick={() => setShowOrderForm(false)} style={{
                 background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%',
                 width: '32px', height: '32px', fontSize: '18px', color: '#FFFFFF', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, lineHeight: 1,
               }}>×</button>
             </div>
 
