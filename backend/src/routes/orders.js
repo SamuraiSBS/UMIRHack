@@ -5,9 +5,9 @@ const { verifyToken, requireRole } = require('../middleware/auth');
 const prisma = new PrismaClient();
 
 // POST /api/orders — customer creates an order
-// Body: { businessId, address, items: [{ productId, quantity }] }
+// Body: { businessId, address, items: [{ productId, quantity }], tradingPointId?, distanceKm? }
 router.post('/', verifyToken, requireRole('CUSTOMER'), async (req, res) => {
-  const { businessId, address, items } = req.body;
+  const { businessId, address, items, tradingPointId, distanceKm } = req.body;
 
   if (!businessId || !address || !items?.length) {
     return res.status(400).json({ error: 'businessId, address, and items are required' });
@@ -27,17 +27,24 @@ router.post('/', verifyToken, requireRole('CUSTOMER'), async (req, res) => {
     const productMap = Object.fromEntries(products.map((p) => [p.id, p]));
     const totalPrice = items.reduce((sum, item) => sum + productMap[item.productId].price * item.quantity, 0);
 
+    // Auto-calculate delivery fee: base 50 ₽ + 15 ₽/km (minimum 50)
+    const km = distanceKm ? Number(distanceKm) : null;
+    const deliveryFee = km != null ? Math.max(50, Math.round(50 + km * 15)) : 150;
+
     const order = await prisma.order.create({
       data: {
         businessId,
         address,
         totalPrice,
+        distanceKm: km,
+        deliveryFee,
         customerId: req.user.id,
+        ...(tradingPointId && { tradingPointId }),
         items: {
           create: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
         },
       },
-      include: { items: { include: { product: true } } },
+      include: { items: { include: { product: true } }, tradingPoint: { select: { name: true, address: true } } },
     });
 
     res.status(201).json(order);
@@ -79,6 +86,8 @@ router.get('/available', verifyToken, requireRole('COURIER'), async (req, res) =
         business: { select: { id: true, name: true } },
         // Only show item count and total — not full address until accepted
         items: { select: { quantity: true, product: { select: { name: true } } } },
+        // Pickup point address is shown before accepting
+        tradingPoint: { select: { name: true, address: true } },
       },
       orderBy: { createdAt: 'asc' },
     });

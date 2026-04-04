@@ -69,8 +69,15 @@ export default function AvailableOrders() {
                   </p>
 
                   <p className="text-sm" style={{ marginTop: '6px', color: '#374151' }}>
-                    <strong>Откуда:</strong> {order.business.name}
+                    <strong>Откуда:</strong>{' '}
+                    {order.tradingPoint ? `${order.tradingPoint.name} — ${order.tradingPoint.address}` : order.business.name}
                   </p>
+
+                  {order.distanceKm != null && (
+                    <p className="text-sm text-gray" style={{ marginTop: '2px' }}>
+                      Расстояние: {order.distanceKm} км
+                    </p>
+                  )}
 
                   <p className="text-sm text-gray" style={{ marginTop: '2px' }}>
                     Заказ #{order.id.slice(-6).toUpperCase()}
@@ -86,8 +93,13 @@ export default function AvailableOrders() {
                 </div>
 
                 <div style={{ marginLeft: '12px', textAlign: 'right', flexShrink: 0 }}>
-                  <p style={{ fontWeight: 700, fontSize: '18px', color: '#16a34a', marginBottom: '8px' }}>
-                    {order.totalPrice.toFixed(0)} ₽
+                  {order.deliveryFee != null ? (
+                    <p style={{ fontWeight: 700, fontSize: '18px', color: '#16a34a', marginBottom: '4px' }}>
+                      +{order.deliveryFee.toFixed(0)} ₽
+                    </p>
+                  ) : null}
+                  <p style={{ fontWeight: order.deliveryFee != null ? 400 : 700, fontSize: order.deliveryFee != null ? '12px' : '18px', color: order.deliveryFee != null ? '#6b7280' : '#16a34a', marginBottom: '8px' }}>
+                    {order.deliveryFee != null ? `заказ ${order.totalPrice.toFixed(0)} ₽` : `${order.totalPrice.toFixed(0)} ₽`}
                   </p>
                   <button
                     className="btn-primary"

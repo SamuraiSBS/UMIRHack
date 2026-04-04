@@ -114,6 +114,16 @@ router.delete('/business/my/trading-points/:id', verifyToken, requireRole('BUSIN
   }
 });
 
+// GET /api/business/:id/trading-points — list trading points for a business (public)
+router.get('/business/:id/trading-points', async (req, res) => {
+  try {
+    const points = await prisma.tradingPoint.findMany({ where: { businessId: req.params.id } });
+    res.json(points);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch trading points' });
+  }
+});
+
 // GET /api/business/:id/products — list products for a business (public)
 router.get('/business/:id/products', async (req, res) => {
   try {

@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function Register() {
-  const [form, setForm] = useState({ email: '', password: '', name: '', role: 'CUSTOMER' });
+  const [form, setForm] = useState({ email: '', password: '', name: '', role: 'CUSTOMER', deliveryZone: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
@@ -16,7 +16,7 @@ export default function Register() {
     setError('');
     setLoading(true);
     try {
-      const user = await register(form.email, form.password, form.name, form.role);
+      const user = await register(form.email, form.password, form.name, form.role, form.deliveryZone);
       if (user.role === 'COURIER') navigate('/courier');
       else if (user.role === 'BUSINESS') navigate('/business');
       else navigate('/shops');
@@ -55,6 +55,12 @@ export default function Register() {
               <option value="BUSINESS">Бизнес (ресторан/магазин)</option>
             </select>
           </div>
+          {form.role === 'COURIER' && (
+            <div className="form-group">
+              <label>Зона доставки (район/адрес)</label>
+              <input value={form.deliveryZone} onChange={set('deliveryZone')} placeholder="Например: Центральный район" />
+            </div>
+          )}
           <button type="submit" className="btn-primary w-full" disabled={loading}>
             {loading ? 'Загрузка...' : 'Зарегистрироваться'}
           </button>
