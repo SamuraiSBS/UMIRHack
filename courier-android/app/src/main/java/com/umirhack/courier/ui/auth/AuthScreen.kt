@@ -61,6 +61,7 @@ fun AuthScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         PromoHeroCard(
+            badge = if (mode == AuthMode.LOGIN) "Вход" else "Регистрация",
             title = "Кабинет курьера",
             subtitle = "Войдите в аккаунт и удобно работайте с доставками!",
         )

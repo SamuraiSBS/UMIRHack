@@ -3,11 +3,15 @@ package com.umirhack.courier.ui.history
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -47,11 +51,20 @@ fun HistoryScreen(
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         item {
-            ScreenHeader(
-                kicker = "History",
-                title = "История доставок",
-                subtitle = "Архив завершённых заказов курьера из общей серверной базы.",
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                ScreenHeader(
+                    kicker = "History",
+                    title = "История доставок",
+                    subtitle = "Архив завершённых заказов курьера из общей серверной базы.",
+                    modifier = Modifier.weight(1f),
+                )
+                OutlinedButton(onClick = onRefresh) {
+                    Text("Обновить")
+                }
+            }
         }
 
         courierState.errorMessage?.let { message ->
@@ -64,9 +77,10 @@ fun HistoryScreen(
             PromoHeroCard(
                 badge = "${courierState.completedOrders.size} заказов",
                 title = "Заработано ${money(totalEarned)}",
+                subtitle = "Все завершённые доставки и начисления по ним собраны в одной ленте.",
                 accentColor = MaterialTheme.colorScheme.secondary,
-            ) {
-
+            )
+        }
 
         if (courierState.completedOrders.isEmpty()) {
             item {
