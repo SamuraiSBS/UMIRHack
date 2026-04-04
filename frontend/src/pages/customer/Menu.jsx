@@ -22,6 +22,9 @@ export default function Menu() {
   const [products, setProducts] = useState([]);
   const [tradingPoints, setTradingPoints] = useState([]);
   const [cart, setCart] = useState({}); // { productId: quantity }
+  const [savedAddresses, setSavedAddresses] = useState([]);
+  const [saveAddress, setSaveAddress] = useState(false);
+  const [newAddressLabel, setNewAddressLabel] = useState('');
   const [address, setAddress] = useState('');
   const [tradingPointId, setTradingPointId] = useState('');
   const [distanceKm, setDistanceKm] = useState('');
@@ -31,19 +34,52 @@ export default function Menu() {
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
+    try {
+      const savedCart = localStorage.getItem(`cart_${id}`);
+      setCart(savedCart ? JSON.parse(savedCart) : {});
+    } catch {
+      setCart({});
+    }
+  }, [id]);
+
+  useEffect(() => {
     localStorage.setItem(`cart_${id}`, JSON.stringify(cart));
   }, [cart, id]);
 
   useEffect(() => {
-    Promise.all([
-      api.get(`/business/${id}`).then(r => r.data),
-      api.get(`/business/${id}/products`).then(r => r.data),
-      api.get(`/business/${id}/trading-points`).then(r => r.data).catch(() => []),
-    ]).then(([biz, prods, points]) => {
-      setBusiness(biz);
-      setProducts(prods);
-      setTradingPoints(points);
-    }).finally(() => setLoading(false));
+    let isMounted = true;
+
+    async function loadMenu() {
+      setLoading(true);
+      setError('');
+
+      try {
+        const [biz, prods, points, addresses] = await Promise.all([
+          api.get(`/business/${id}`).then(r => r.data),
+          api.get(`/business/${id}/products`).then(r => r.data),
+          api.get(`/business/${id}/trading-points`).then(r => r.data).catch(() => []),
+          api.get('/addresses').then(r => r.data).catch(() => []),
+        ]);
+
+        if (!isMounted) return;
+
+        setBusiness(biz);
+        setProducts(prods);
+        setTradingPoints(points);
+        setSavedAddresses(addresses);
+      } catch (err) {
+        if (!isMounted) return;
+        setError(err.response?.data?.error || 'Не удалось загрузить меню');
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+
+    loadMenu();
+
+    return () => {
+      isMounted = false;
+    };
   }, [id]);
 
   function changeQty(productId, delta) {
@@ -56,10 +92,12 @@ export default function Menu() {
     });
   }
 
-  const cartItems = Object.entries(cart).map(([productId, quantity]) => {
-    const product = products.find(p => p.id === productId);
-    return { productId, quantity, product };
-  });
+  const cartItems = Object.entries(cart)
+    .map(([productId, quantity]) => {
+      const product = products.find(p => p.id === productId);
+      return product ? { productId, quantity, product } : null;
+    })
+    .filter(Boolean);
 
   const total = cartItems.reduce((sum, { quantity, product }) => sum + product.price * quantity, 0);
 
@@ -102,14 +140,15 @@ export default function Menu() {
       </button>
 
       <h1 className="page-title">{business?.name || 'Меню'}</h1>
+      {error && <div className="error-msg" style={{ marginBottom: '16px' }}>{error}</div>}
       {business?.description && <p className="text-gray text-sm" style={{ marginBottom: '8px' }}>{business.description}</p>}
       {business?.deliveryZone && (
         <p className="text-sm text-gray" style={{ marginBottom: '4px' }}>Зона доставки: {business.deliveryZone}</p>
       )}
-      {business?.tradingPoints?.length > 0 && (
+      {tradingPoints.length > 0 && (
         <div style={{ marginBottom: '16px' }}>
           <p className="text-sm" style={{ fontWeight: 600, marginBottom: '4px' }}>Адреса:</p>
-          {business.tradingPoints.map(tp => (
+          {tradingPoints.map(tp => (
             <p key={tp.id} className="text-sm text-gray">📍 {tp.name}: {tp.address}</p>
           ))}
         </div>

@@ -46,6 +46,25 @@ router.get('/business/my', verifyToken, requireRole('BUSINESS'), async (req, res
   }
 });
 
+// GET /api/business/:id — get public business details
+router.get('/business/:id', async (req, res) => {
+  try {
+    const business = await prisma.business.findFirst({
+      where: { id: req.params.id, isBlocked: false },
+      include: {
+        tradingPoints: {
+          orderBy: { name: 'asc' },
+        },
+      },
+    });
+
+    if (!business) return res.status(404).json({ error: 'Business not found' });
+    res.json(business);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch business' });
+  }
+});
+
 // PATCH /api/business/my — update business info
 router.patch('/business/my', verifyToken, requireRole('BUSINESS'), async (req, res) => {
   const { name, description, deliveryZone } = req.body;
