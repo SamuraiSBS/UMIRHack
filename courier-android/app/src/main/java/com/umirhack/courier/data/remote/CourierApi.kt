@@ -17,10 +17,13 @@ interface CourierApi {
     suspend fun getShift(): ShiftStatusDto
 
     @POST("courier/shift/start")
-    suspend fun startShift(): ShiftStatusDto
+    suspend fun startShift(@Body body: ShiftStartRequestDto): ShiftStatusDto
 
     @POST("courier/shift/stop")
     suspend fun stopShift(): ShiftStatusDto
+
+    @PATCH("courier/city")
+    suspend fun updateCourierCity(@Body body: CourierCityRequestDto): ShiftStatusDto
 
     @GET("courier/orders")
     suspend fun getCourierOrders(): List<OrderDto>

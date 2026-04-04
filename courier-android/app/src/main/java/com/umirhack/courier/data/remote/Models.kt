@@ -23,10 +23,20 @@ data class UserDto(
     val email: String,
     val name: String?,
     val role: String,
+    val deliveryZone: String? = null,
 )
 
 data class ShiftStatusDto(
     val isActive: Boolean,
+    val city: String? = null,
+)
+
+data class ShiftStartRequestDto(
+    val city: String,
+)
+
+data class CourierCityRequestDto(
+    val city: String,
 )
 
 data class OrderStatusUpdateDto(

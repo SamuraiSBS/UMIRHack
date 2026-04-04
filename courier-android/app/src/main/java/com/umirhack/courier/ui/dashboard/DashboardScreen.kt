@@ -12,9 +12,20 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExposedDropdownMenu
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.menuAnchor
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
@@ -42,11 +53,22 @@ private fun orderStatusLabel(status: String): String = when (status) {
     else -> status
 }
 
+private val supportedCities = listOf(
+    "Москва",
+    "Санкт-Петербург",
+    "Казань",
+    "Екатеринбург",
+    "Новосибирск",
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     appState: AppUiState,
     courierState: CourierUiState,
     onToggleShift: () -> Unit,
+    onCityChange: (String) -> Unit,
+    onSaveCity: () -> Unit,
     onRefresh: () -> Unit,
     onRefreshIfStale: () -> Unit,
     onLogout: () -> Unit,
@@ -57,6 +79,7 @@ fun DashboardScreen(
     }
 
     val greetingName = appState.session.userName ?: appState.session.userEmail.orEmpty()
+    var cityMenuExpanded by remember { mutableStateOf(false) }
 
     LazyColumn(
         modifier = Modifier
@@ -74,13 +97,59 @@ fun DashboardScreen(
         }
 
         item {
+            SectionCard {
+                Text("Город смены", style = MaterialTheme.typography.titleLarge)
+                ExposedDropdownMenuBox(
+                    expanded = cityMenuExpanded,
+                    onExpandedChange = { cityMenuExpanded = !cityMenuExpanded },
+                ) {
+                    OutlinedTextField(
+                        value = courierState.selectedCity,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Выберите город") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = cityMenuExpanded) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(),
+                    )
+                    ExposedDropdownMenu(
+                        expanded = cityMenuExpanded,
+                        onDismissRequest = { cityMenuExpanded = false },
+                    ) {
+                        supportedCities.forEach { city ->
+                            DropdownMenuItem(
+                                text = { Text(city) },
+                                onClick = {
+                                    onCityChange(city)
+                                    cityMenuExpanded = false
+                                },
+                            )
+                        }
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    InfoChip(text = "Город: ${courierState.selectedCity}")
+                    InfoChip(text = if (courierState.shiftActive) "Сохранён для активной смены" else "Сохранится между сменами")
+                }
+                OutlinedButton(
+                    onClick = onSaveCity,
+                    enabled = !courierState.isCityUpdating,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(if (courierState.isCityUpdating) "Сохраняем..." else "Сохранить город")
+                }
+            }
+        }
+
+        item {
             PromoHeroCard(
                 badge = if (courierState.shiftActive) "Смена ON" else "Смена OFF",
                 title = if (courierState.shiftActive) "Забирайте новые заказы без пауз" else "Запустите смену и выходите на линию",
                 subtitle = if (courierState.shiftActive) {
-                    "Начинайте смену и зарабатывайте на работе вашей мечты!."
+                    "Вы на линии в городе ${courierState.selectedCity}. Новые заказы подбираются по этой зоне."
                 } else {
-                    "После запуска смены приложение откроет доступные заказы и начнёт держать ленту в актуальном состоянии."
+                    "Выберите город заранее: он не сбросится после завершения смены, а перед стартом его можно поменять."
                 },
                 accentColor = if (courierState.shiftActive) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
             ) {

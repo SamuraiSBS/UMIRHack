@@ -4,11 +4,13 @@ import com.google.gson.Gson
 import com.umirhack.courier.data.local.SessionStorage
 import com.umirhack.courier.data.remote.ApiProvider
 import com.umirhack.courier.data.remote.AuthResponseDto
+import com.umirhack.courier.data.remote.CourierCityRequestDto
 import com.umirhack.courier.data.remote.ErrorResponseDto
 import com.umirhack.courier.data.remote.LoginRequestDto
 import com.umirhack.courier.data.remote.OrderDto
 import com.umirhack.courier.data.remote.OrderStatusUpdateDto
 import com.umirhack.courier.data.remote.RegisterRequestDto
+import com.umirhack.courier.data.remote.ShiftStartRequestDto
 import com.umirhack.courier.data.remote.ShiftStatusDto
 import okhttp3.ResponseBody
 import retrofit2.HttpException
@@ -44,9 +46,13 @@ class CourierRepository(
 
     suspend fun getShift(): ShiftStatusDto = apiProvider.api().getShift()
 
-    suspend fun startShift(): ShiftStatusDto = apiProvider.api().startShift()
+    suspend fun startShift(city: String): ShiftStatusDto =
+        apiProvider.api().startShift(ShiftStartRequestDto(city))
 
     suspend fun stopShift(): ShiftStatusDto = apiProvider.api().stopShift()
+
+    suspend fun updateCourierCity(city: String): ShiftStatusDto =
+        apiProvider.api().updateCourierCity(CourierCityRequestDto(city))
 
     suspend fun getCourierOrders(): List<OrderDto> = apiProvider.api().getCourierOrders()
 

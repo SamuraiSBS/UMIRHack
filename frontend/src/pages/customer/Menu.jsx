@@ -1,6 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../api/client';
+import LeafletMap from '../../components/LeafletMap';
+import { CITY_OPTIONS, getCityConfig } from '../../lib/cities';
+import { fetchRoute, geocodeAddress, haversineKm, reverseGeocode } from '../../lib/map';
 
 // Status label badge
 function StatusBadge({ status }) {
@@ -22,13 +25,20 @@ export default function Menu() {
   const [products, setProducts] = useState([]);
   const [tradingPoints, setTradingPoints] = useState([]);
   const [cart, setCart] = useState({}); // { productId: quantity }
+  const [city, setCity] = useState(CITY_OPTIONS[0].value);
   const [address, setAddress] = useState('');
+  const [addressDetails, setAddressDetails] = useState('');
+  const [deliveryPoint, setDeliveryPoint] = useState(null);
   const [tradingPointId, setTradingPointId] = useState('');
   const [distanceKm, setDistanceKm] = useState('');
+  const [routeMeta, setRouteMeta] = useState(null);
   const [loading, setLoading] = useState(true);
   const [ordering, setOrdering] = useState(false);
+  const [resolvingPoint, setResolvingPoint] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  const cityConfig = useMemo(() => getCityConfig(city), [city]);
 
   useEffect(() => {
     Promise.all([
@@ -41,6 +51,85 @@ export default function Menu() {
       setTradingPoints(points);
     }).finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    setDeliveryPoint(null);
+    setAddress('');
+    setAddressDetails('');
+    setDistanceKm('');
+    setRouteMeta(null);
+    setTradingPointId('');
+  }, [city]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function buildRoute() {
+      if (!deliveryPoint || !business) {
+        setDistanceKm('');
+        setRouteMeta(null);
+        return;
+      }
+
+      const pickupSource = tradingPoints.find((point) => point.id === tradingPointId);
+      const pickupQuery = pickupSource
+        ? `${pickupSource.address}`
+        : `${business.name}, ${business.description || ''}`;
+
+      try {
+        const pickup = await geocodeAddress(pickupQuery, city);
+        if (cancelled || !pickup) {
+          const fallbackDistance = haversineKm(
+            { lat: cityConfig.center[0], lng: cityConfig.center[1] },
+            deliveryPoint
+          );
+          setDistanceKm(fallbackDistance.toFixed(1));
+          setRouteMeta(null);
+          return;
+        }
+
+        const route = await fetchRoute(pickup, deliveryPoint);
+        if (cancelled) return;
+
+        if (route) {
+          setDistanceKm(route.distanceKm.toFixed(1));
+          setRouteMeta(route);
+        } else {
+          const fallbackDistance = haversineKm(pickup, deliveryPoint);
+          setDistanceKm(fallbackDistance.toFixed(1));
+          setRouteMeta(null);
+        }
+      } catch {
+        if (cancelled) return;
+        const fallbackDistance = haversineKm(
+          { lat: cityConfig.center[0], lng: cityConfig.center[1] },
+          deliveryPoint
+        );
+        setDistanceKm(fallbackDistance.toFixed(1));
+        setRouteMeta(null);
+      }
+    }
+
+    buildRoute();
+    return () => {
+      cancelled = true;
+    };
+  }, [business, city, cityConfig.center, deliveryPoint, tradingPointId, tradingPoints]);
+
+  async function handleMapClick(point) {
+    setError('');
+    setResolvingPoint(true);
+    setDeliveryPoint(point);
+    try {
+      const result = await reverseGeocode(point.lat, point.lng);
+      const baseAddress = result.display_name || `${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}`;
+      setAddress(baseAddress);
+    } catch {
+      setAddress(`${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}`);
+    } finally {
+      setResolvingPoint(false);
+    }
+  }
 
   function changeQty(productId, delta) {
     setCart(prev => {
@@ -61,15 +150,21 @@ export default function Menu() {
 
   async function handleOrder(e) {
     e.preventDefault();
+    if (!city.trim()) { setError('Выберите город'); return; }
+    if (!deliveryPoint) { setError('Укажите точку доставки на карте'); return; }
     if (!address.trim()) { setError('Укажите адрес доставки'); return; }
     if (cartItems.length === 0) { setError('Корзина пуста'); return; }
 
     setError('');
     setOrdering(true);
     try {
+      const fullAddress = [city, address.trim(), addressDetails.trim()].filter(Boolean).join(', ');
       await api.post('/orders', {
         businessId: id,
-        address: address.trim(),
+        city,
+        address: fullAddress,
+        deliveryLat: deliveryPoint.lat,
+        deliveryLng: deliveryPoint.lng,
         items: cartItems.map(({ productId, quantity }) => ({ productId, quantity })),
         ...(tradingPointId && { tradingPointId }),
         ...(distanceKm && { distanceKm: Number(distanceKm) }),
@@ -149,14 +244,29 @@ export default function Menu() {
 
           <form onSubmit={handleOrder}>
             <div className="form-group">
-              <label>Адрес доставки</label>
-              <input
-                value={address}
-                onChange={e => setAddress(e.target.value)}
-                placeholder="ул. Пушкина, д. 1, кв. 10"
-                required
-              />
+              <label>Город доставки</label>
+              <select value={city} onChange={e => setCity(e.target.value)}>
+                {CITY_OPTIONS.map((item) => (
+                  <option key={item.value} value={item.value}>{item.value}</option>
+                ))}
+              </select>
             </div>
+
+            <div className="form-group">
+              <label>Точка доставки на карте</label>
+              <LeafletMap
+                center={cityConfig.center}
+                zoom={cityConfig.zoom}
+                destination={deliveryPoint}
+                route={routeMeta?.coordinates}
+                onMapClick={handleMapClick}
+                height={340}
+              />
+              <p className="text-sm text-gray">
+                Сначала выберите город, затем нажмите на реальную карту OpenStreetMap в нужной точке.
+              </p>
+            </div>
+
             {tradingPoints.length > 0 && (
               <div className="form-group">
                 <label>Точка отправки (откуда забрать)</label>
@@ -169,16 +279,41 @@ export default function Menu() {
               </div>
             )}
             <div className="form-group">
-              <label>Расстояние, км (примерно)</label>
+              <label>Адрес по выбранной точке</label>
               <input
-                type="number"
-                min="0"
-                step="0.1"
-                value={distanceKm}
-                onChange={e => setDistanceKm(e.target.value)}
-                placeholder="например 3.5"
+                value={address}
+                onChange={e => setAddress(e.target.value)}
+                placeholder="Кликните по карте, чтобы подставить адрес"
+                required
               />
             </div>
+
+            <div className="form-group">
+              <label>Квартира, подъезд, комментарий</label>
+              <input
+                value={addressDetails}
+                onChange={e => setAddressDetails(e.target.value)}
+                placeholder="кв. 10, домофон 25, позвонить за 5 минут"
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Расчёт маршрута</label>
+              <input
+                type="text"
+                value={
+                  resolvingPoint
+                    ? 'Определяем адрес по карте...'
+                    : routeMeta
+                      ? `${routeMeta.distanceKm.toFixed(1)} км, ~${Math.max(5, Math.round(routeMeta.durationMin))} мин`
+                      : distanceKm
+                        ? `${distanceKm} км`
+                        : 'Маршрут появится после выбора точки'
+                }
+                readOnly
+              />
+            </div>
+
             {distanceKm && (
               <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '12px' }}>
                 Стоимость доставки: {Math.max(50, Math.round(50 + Number(distanceKm) * 15))} ₽

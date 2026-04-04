@@ -182,3 +182,45 @@ input:focus, select:focus, textarea:focus {
 .text-right { text-align: right; }
 .bold { font-weight: 700; }
 .w-full { width: 100%; }
+
+.map-shell {
+  width: 100%;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  border: 1px solid var(--gray-200);
+  background: linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%);
+}
+
+.leaflet-div-icon-reset {
+  background: transparent;
+  border: 0;
+}
+
+.map-pin {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 700;
+  box-shadow: 0 0.375rem 1rem rgba(17, 24, 39, 0.25);
+}
+
+.map-pin-destination {
+  background: #dc2626;
+}
+
+.map-pin-courier {
+  background: #2563eb;
+}
+
+.tracking-summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}

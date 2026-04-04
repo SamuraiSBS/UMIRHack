@@ -18,10 +18,12 @@ private val ACTIVE_STATUSES = setOf("ACCEPTED", "DELIVERING")
 data class CourierUiState(
     val isLoading: Boolean = false,
     val isShiftUpdating: Boolean = false,
+    val isCityUpdating: Boolean = false,
     val acceptingOrderId: String? = null,
     val isUpdatingActiveOrder: Boolean = false,
     val lastUpdatedAtMillis: Long? = null,
     val shiftActive: Boolean = false,
+    val selectedCity: String = "Москва",
     val availableOrders: List<OrderDto> = emptyList(),
     val activeOrder: OrderDto? = null,
     val recentCompletedOrder: OrderDto? = null,
@@ -58,15 +60,16 @@ class CourierViewModel(
                 val shift = shiftDeferred.await()
                 val orders = ordersDeferred.await()
                 val available = if (shift.isActive) repository.getAvailableOrders() else emptyList()
-                Triple(shift.isActive, orders, available)
-            }.onSuccess { (shiftActive, orders, available) ->
+                Triple(shift, orders, available)
+            }.onSuccess { (shift, orders, available) ->
                 val activeOrder = orders.firstOrNull { it.status in ACTIVE_STATUSES }
                 val completed = orders.filter { it.status == "DONE" }
                 _uiState.update {
                     val recentCompletedOrder = if (activeOrder == null) it.recentCompletedOrder else null
                     it.copy(
                         isLoading = false,
-                        shiftActive = shiftActive,
+                        shiftActive = shift.isActive,
+                        selectedCity = shift.city ?: it.selectedCity,
                         availableOrders = available,
                         activeOrder = activeOrder,
                         recentCompletedOrder = recentCompletedOrder,
@@ -87,13 +90,52 @@ class CourierViewModel(
         }
     }
 
+    fun updateSelectedCity(city: String) {
+        _uiState.update { it.copy(selectedCity = city) }
+    }
+
+    fun saveSelectedCity() {
+        val city = _uiState.value.selectedCity.trim()
+        if (city.isBlank()) {
+            _uiState.update { it.copy(errorMessage = "Выберите город") }
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isCityUpdating = true, errorMessage = null) }
+            runCatching { repository.updateCourierCity(city) }
+                .onSuccess { shift ->
+                    _uiState.update {
+                        it.copy(
+                            isCityUpdating = false,
+                            selectedCity = shift.city ?: city,
+                        )
+                    }
+                    refresh(showLoader = false)
+                }
+                .onFailure { error ->
+                    _uiState.update {
+                        it.copy(
+                            isCityUpdating = false,
+                            errorMessage = repository.toUserMessage(error),
+                        )
+                    }
+                }
+        }
+    }
+
     fun toggleShift() {
         viewModelScope.launch {
             val shouldStart = !_uiState.value.shiftActive
+            val city = _uiState.value.selectedCity.trim()
+            if (shouldStart && city.isBlank()) {
+                _uiState.update { it.copy(errorMessage = "Выберите город перед началом смены") }
+                return@launch
+            }
             _uiState.update { it.copy(isShiftUpdating = true, errorMessage = null) }
 
             runCatching {
-                if (shouldStart) repository.startShift() else repository.stopShift()
+                if (shouldStart) repository.startShift(city) else repository.stopShift()
             }.onSuccess {
                 _uiState.update { it.copy(isShiftUpdating = false) }
                 refresh(showLoader = false)

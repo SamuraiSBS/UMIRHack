@@ -76,7 +76,12 @@ model Product {
 model Order {
   id             String      @id @default(cuid())
   status         OrderStatus @default(CREATED)
+  city           String?
   address        String
+  deliveryLat    Float?
+  deliveryLng    Float?
+  courierLat     Float?
+  courierLng     Float?
   totalPrice     Float
   distanceKm     Float?
   deliveryFee    Float?

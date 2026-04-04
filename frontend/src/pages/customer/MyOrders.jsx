@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../../api/client';
+import LeafletMap from '../../components/LeafletMap';
+import { fetchRoute } from '../../lib/map';
 
 const STATUS_LABELS = {
   CREATED: ['badge-created', 'Создан — ждём курьера'],
@@ -12,6 +14,67 @@ const STATUS_LABELS = {
 function StatusBadge({ status }) {
   const [cls, label] = STATUS_LABELS[status] || ['badge-done', status];
   return <span className={`badge ${cls}`}>{label}</span>;
+}
+
+function OrderTrackingMap({ order }) {
+  const [route, setRoute] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadRoute() {
+      if (order.courierLat == null || order.courierLng == null || order.deliveryLat == null || order.deliveryLng == null) {
+        setRoute(null);
+        return;
+      }
+
+      try {
+        const result = await fetchRoute(
+          { lat: order.courierLat, lng: order.courierLng },
+          { lat: order.deliveryLat, lng: order.deliveryLng }
+        );
+        if (!cancelled) setRoute(result);
+      } catch {
+        if (!cancelled) setRoute(null);
+      }
+    }
+
+    loadRoute();
+    return () => {
+      cancelled = true;
+    };
+  }, [order.courierLat, order.courierLng, order.deliveryLat, order.deliveryLng]);
+
+  return (
+    <div style={{ marginTop: '14px' }}>
+      <div className="tracking-summary">
+        <div>
+          <strong>Курьер на карте</strong>
+          <p className="text-sm text-gray">
+            {order.courierLat != null && order.courierLng != null
+              ? 'Текущее местоположение и маршрут обновляются автоматически.'
+              : 'Ждём первую геопозицию от курьера.'}
+          </p>
+        </div>
+        {route && (
+          <div style={{ textAlign: 'right' }}>
+            <strong>~{Math.max(5, Math.round(route.durationMin))} мин</strong>
+            <p className="text-sm text-gray">{route.distanceKm.toFixed(1)} км</p>
+          </div>
+        )}
+      </div>
+
+      <LeafletMap
+        center={[order.deliveryLat, order.deliveryLng]}
+        zoom={13}
+        interactive={false}
+        destination={{ lat: order.deliveryLat, lng: order.deliveryLng }}
+        courier={order.courierLat != null && order.courierLng != null ? { lat: order.courierLat, lng: order.courierLng } : null}
+        route={route?.coordinates}
+        height={300}
+      />
+    </div>
+  );
 }
 
 export default function MyOrders() {
@@ -98,6 +161,12 @@ export default function MyOrders() {
                 <strong>Курьер:</strong> {order.courier.name || order.courier.email}
               </p>
             )}
+
+            {(order.status === 'ACCEPTED' || order.status === 'DELIVERING' || order.status === 'DONE') &&
+              order.deliveryLat != null &&
+              order.deliveryLng != null && (
+                <OrderTrackingMap order={order} />
+              )}
 
             <div style={{ marginTop: '10px', borderTop: '1px solid #e5e7eb', paddingTop: '10px' }}>
               {order.items.map(item => (

@@ -133,6 +133,8 @@ fun CourierApp(
                     appState = appState,
                     courierState = courierState,
                     onToggleShift = courierViewModel::toggleShift,
+                    onCityChange = courierViewModel::updateSelectedCity,
+                    onSaveCity = courierViewModel::saveSelectedCity,
                     onRefresh = { courierViewModel.refresh() },
                     onRefreshIfStale = { courierViewModel.refreshIfStale(showLoader = true) },
                     onLogout = appViewModel::logout,
