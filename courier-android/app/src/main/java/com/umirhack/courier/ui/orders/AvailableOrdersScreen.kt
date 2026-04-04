@@ -130,19 +130,21 @@ fun AvailableOrdersScreen(
         }
 
         items(mergedOrders, key = { it.id }) { order ->
-            val itemCount = order.items.sumOf { it.quantity }
+            val orderItems = order.items.orEmpty()
+            val merchantName = order.business?.name ?: "Магазин не указан"
+            val itemCount = orderItems.sumOf { it.quantity }
             val composition = buildString {
-                order.items.take(3).forEachIndexed { index, item ->
-                    append(item.product.name)
+                orderItems.take(3).forEachIndexed { index, item ->
+                    append(item.product.name ?: "Товар")
                     append(" x")
                     append(item.quantity)
-                    if (index < minOf(order.items.size, 3) - 1) {
+                    if (index < minOf(orderItems.size, 3) - 1) {
                         append(", ")
                     }
                 }
-                if (order.items.size > 3) {
+                if (orderItems.size > 3) {
                     append(" и ещё ")
-                    append(order.items.size - 3)
+                    append(orderItems.size - 3)
                 }
             }
 
@@ -160,7 +162,7 @@ fun AvailableOrdersScreen(
                 }
 
                 MerchantBanner(
-                    title = order.business.name,
+                    title = merchantName,
                     subtitle = order.tradingPoint?.let { "${it.name} • ${it.address}" } ?: "Точка выдачи уточняется",
                 )
 

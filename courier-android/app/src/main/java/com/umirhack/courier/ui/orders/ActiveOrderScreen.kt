@@ -60,6 +60,8 @@ fun ActiveOrderScreen(
     }
 
     val focusOrder = courierState.activeOrder ?: courierState.recentCompletedOrder
+    val focusOrderItems = focusOrder?.items.orEmpty()
+    val focusMerchantName = focusOrder?.business?.name ?: "Магазин не указан"
 
     LazyColumn(
         modifier = Modifier
@@ -115,7 +117,7 @@ fun ActiveOrderScreen(
                     },
                 ) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        InfoChip(text = focusOrder.business.name)
+                        InfoChip(text = focusMerchantName)
                         focusOrder.deliveryFee?.let { fee ->
                             InfoChip(text = "+${money(fee)}")
                         }
@@ -136,7 +138,7 @@ fun ActiveOrderScreen(
                     borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
                 ) {
                     MerchantBanner(
-                        title = focusOrder.business.name,
+                        title = focusMerchantName,
                         subtitle = focusOrder.tradingPoint?.let { "${it.name} • ${it.address}" } ?: "Точка выдачи не указана",
                     )
                     MetricRow(label = "Клиент", value = focusOrder.customer?.name ?: focusOrder.customer?.email.orEmpty())
@@ -150,10 +152,10 @@ fun ActiveOrderScreen(
                     }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
                     Text("Состав заказа", style = MaterialTheme.typography.titleMedium)
-                    focusOrder.items.forEach { item ->
+                    focusOrderItems.forEach { item ->
                         val sum = (item.product.price ?: 0.0) * item.quantity
                         MetricRow(
-                            label = "${item.product.name} x${item.quantity}",
+                            label = "${item.product.name ?: "Товар"} x${item.quantity}",
                             value = money(sum),
                         )
                     }
@@ -187,7 +189,7 @@ fun ActiveOrderScreen(
             items(courierState.completedToday, key = { it.id }) { order ->
                 SectionCard {
                     MerchantBanner(
-                        title = order.business.name,
+                        title = order.business?.name ?: "Магазин не указан",
                         subtitle = order.address.orEmpty(),
                     )
                     MetricRow(label = "Доход", value = money(order.deliveryFee))

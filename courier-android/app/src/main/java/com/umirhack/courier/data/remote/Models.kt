@@ -49,7 +49,7 @@ data class ErrorResponseDto(
 
 data class BusinessDto(
     val id: String? = null,
-    val name: String,
+    val name: String? = null,
 )
 
 data class TradingPointDto(
@@ -58,7 +58,7 @@ data class TradingPointDto(
 )
 
 data class ProductDto(
-    val name: String,
+    val name: String? = null,
     val price: Double? = null,
 )
 
@@ -81,8 +81,8 @@ data class OrderDto(
     val distanceKm: Double? = null,
     val deliveryFee: Double? = null,
     val createdAt: String? = null,
-    val items: List<OrderItemDto>,
-    val business: BusinessDto,
+    val items: List<OrderItemDto>? = null,
+    val business: BusinessDto? = null,
     val tradingPoint: TradingPointDto? = null,
     val customer: CustomerDto? = null,
 )

@@ -193,10 +193,28 @@ router.patch('/:id/status', verifyToken, requireRole('COURIER'), async (req, res
       return res.status(404).json({ error: 'Order not found' });
     }
 
-    const updated = await prisma.order.update({
+    const validTransition =
+      (order.status === 'ACCEPTED' && status === 'DELIVERING') ||
+      (order.status === 'DELIVERING' && status === 'DONE');
+    if (!validTransition) {
+      return res.status(409).json({ error: 'Invalid order status transition' });
+    }
+
+    await prisma.order.update({
       where: { id: req.params.id },
       data: { status },
     });
+
+    const updated = await prisma.order.findUnique({
+      where: { id: req.params.id },
+      include: {
+        items: { include: { product: { select: { name: true, price: true } } } },
+        customer: { select: { name: true, email: true } },
+        business: { select: { id: true, name: true } },
+        tradingPoint: { select: { name: true, address: true } },
+      },
+    });
+
     res.json(updated);
   } catch (err) {
     res.status(500).json({ error: 'Failed to update order status' });

@@ -57,7 +57,6 @@ fun HistoryScreen(
                 ScreenHeader(
                     kicker = "History",
                     title = "История доставок",
-                    subtitle = "Архив завершённых заказов курьера из общей серверной базы.",
                     modifier = Modifier.weight(1f),
                 )
                 OutlinedButton(onClick = onRefresh) {
@@ -93,7 +92,7 @@ fun HistoryScreen(
         items(courierState.completedOrders, key = { it.id }) { order ->
             SectionCard {
                 MerchantBanner(
-                    title = order.business.name,
+                    title = order.business?.name ?: "Магазин не указан",
                     subtitle = order.address.orEmpty(),
                 )
                 order.tradingPoint?.let { tradingPoint ->
