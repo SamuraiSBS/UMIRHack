@@ -40,8 +40,12 @@ Thumbs.db
 coverage/
 .nyc_output/
 
+# Prisma generated client
+backend/src/generated/
+
 # Misc
 *.pdf
 .claude/
 
+.gradle/
 .gradle/
