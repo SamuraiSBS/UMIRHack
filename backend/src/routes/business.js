@@ -229,7 +229,8 @@ router.delete('/products/:id', verifyToken, requireRole('BUSINESS'), async (req,
     await prisma.product.delete({ where: { id: req.params.id } });
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to delete product' });
+    console.error('Delete product error:', err);
+    res.status(500).json({ error: err.message || 'Failed to delete product' });
   }
 });
 
