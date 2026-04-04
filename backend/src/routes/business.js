@@ -137,11 +137,23 @@ router.patch('/business/my/trading-points/:id', verifyToken, requireRole('BUSINE
   }
 });
 
-// GET /api/business/:id/products — list products for a business (public)
+// GET /api/business/my/products — all products for owner (including unavailable)
+router.get('/business/my/products', verifyToken, requireRole('BUSINESS'), async (req, res) => {
+  try {
+    const business = await prisma.business.findUnique({ where: { ownerId: req.user.id } });
+    if (!business) return res.status(404).json({ error: 'No business found' });
+    const products = await prisma.product.findMany({ where: { businessId: business.id } });
+    res.json(products);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch products' });
+  }
+});
+
+// GET /api/business/:id/products — list products for a business (public, available only)
 router.get('/business/:id/products', async (req, res) => {
   try {
     const products = await prisma.product.findMany({
-      where: { businessId: req.params.id },
+      where: { businessId: req.params.id, isAvailable: true },
     });
     res.json(products);
   } catch (err) {
@@ -151,7 +163,7 @@ router.get('/business/:id/products', async (req, res) => {
 
 // POST /api/products — create a product (must own a business)
 router.post('/products', verifyToken, requireRole('BUSINESS'), async (req, res) => {
-  const { name, description, price, imageUrl } = req.body;
+  const { name, description, price, imageUrl, category } = req.body;
   if (!name || price == null) return res.status(400).json({ error: 'Name and price are required' });
 
   try {
@@ -159,7 +171,7 @@ router.post('/products', verifyToken, requireRole('BUSINESS'), async (req, res) 
     if (!business) return res.status(404).json({ error: 'Create a business first' });
 
     const product = await prisma.product.create({
-      data: { name, description, price: Number(price), imageUrl: imageUrl || null, businessId: business.id },
+      data: { name, description, price: Number(price), imageUrl: imageUrl || null, category: category || null, businessId: business.id },
     });
     res.status(201).json(product);
   } catch (err) {
@@ -169,7 +181,7 @@ router.post('/products', verifyToken, requireRole('BUSINESS'), async (req, res) 
 
 // PATCH /api/products/:id — update a product
 router.patch('/products/:id', verifyToken, requireRole('BUSINESS'), async (req, res) => {
-  const { name, description, price, imageUrl } = req.body;
+  const { name, description, price, imageUrl, isAvailable, category } = req.body;
   try {
     const business = await prisma.business.findUnique({ where: { ownerId: req.user.id } });
     if (!business) return res.status(404).json({ error: 'Business not found' });
@@ -184,6 +196,8 @@ router.patch('/products/:id', verifyToken, requireRole('BUSINESS'), async (req, 
         ...(description !== undefined && { description }),
         ...(price != null && { price: Number(price) }),
         ...(imageUrl !== undefined && { imageUrl }),
+        ...(isAvailable !== undefined && { isAvailable: Boolean(isAvailable) }),
+        ...(category !== undefined && { category }),
       },
     });
     res.json(updated);

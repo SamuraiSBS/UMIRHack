@@ -66,6 +66,8 @@ model Product {
   description String?
   price       Float
   imageUrl    String?
+  isAvailable Boolean     @default(true)
+  category    String?
   businessId  String
   business    Business    @relation(fields: [businessId], references: [id])
   orderItems  OrderItem[]

@@ -5,24 +5,24 @@ export default function Products() {
   const [business, setBusiness] = useState(null);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({ name: '', description: '', price: '', imageUrl: '' });
+  const [form, setForm] = useState({ name: '', description: '', price: '', imageUrl: '', category: '' });
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(null);
   const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState({ name: '', description: '', price: '', imageUrl: '' });
+  const [editForm, setEditForm] = useState({ name: '', description: '', price: '', imageUrl: '', category: '' });
   const [editSaving, setEditSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  function loadProducts(bizId) {
-    return api.get(`/business/${bizId}/products`).then(r => setProducts(r.data));
+  function loadProducts() {
+    return api.get('/business/my/products').then(r => setProducts(r.data));
   }
 
   useEffect(() => {
     api.get('/business/my')
       .then(r => {
         setBusiness(r.data);
-        return loadProducts(r.data.id);
+        return loadProducts();
       })
       .catch(() => setError('Сначала создайте заведение в разделе Заказы'))
       .finally(() => setLoading(false));
@@ -38,10 +38,16 @@ export default function Products() {
     setSuccess('');
     setSaving(true);
     try {
-      await api.post('/products', { name: form.name, description: form.description, price: parseFloat(form.price), imageUrl: form.imageUrl || null });
-      setForm({ name: '', description: '', price: '', imageUrl: '' });
+      await api.post('/products', {
+        name: form.name,
+        description: form.description,
+        price: parseFloat(form.price),
+        imageUrl: form.imageUrl || null,
+        category: form.category || null,
+      });
+      setForm({ name: '', description: '', price: '', imageUrl: '', category: '' });
       setSuccess('Позиция добавлена!');
-      await loadProducts(business.id);
+      await loadProducts();
     } catch (err) {
       setError(err.response?.data?.error || 'Ошибка добавления');
     } finally {
@@ -51,13 +57,19 @@ export default function Products() {
 
   function startEdit(product) {
     setEditingId(product.id);
-    setEditForm({ name: product.name, description: product.description || '', price: String(product.price), imageUrl: product.imageUrl || '' });
+    setEditForm({
+      name: product.name,
+      description: product.description || '',
+      price: String(product.price),
+      imageUrl: product.imageUrl || '',
+      category: product.category || '',
+    });
     setError('');
   }
 
   function cancelEdit() {
     setEditingId(null);
-    setEditForm({ name: '', description: '', price: '', imageUrl: '' });
+    setEditForm({ name: '', description: '', price: '', imageUrl: '', category: '' });
   }
 
   async function handleEdit(productId) {
@@ -70,6 +82,7 @@ export default function Products() {
         description: editForm.description,
         price: parseFloat(editForm.price),
         imageUrl: editForm.imageUrl || null,
+        category: editForm.category || null,
       });
       setProducts(prev => prev.map(p => p.id === productId ? res.data : p));
       setEditingId(null);
@@ -91,6 +104,15 @@ export default function Products() {
       setError(err.response?.data?.error || 'Ошибка удаления');
     } finally {
       setDeleting(null);
+    }
+  }
+
+  async function handleToggleAvailable(product) {
+    try {
+      const res = await api.patch(`/products/${product.id}`, { isAvailable: !product.isAvailable });
+      setProducts(prev => prev.map(p => p.id === product.id ? res.data : p));
+    } catch (err) {
+      setError('Ошибка изменения доступности');
     }
   }
 
@@ -122,9 +144,15 @@ export default function Products() {
               <input type="number" min="0" step="0.01" value={form.price} onChange={set('price')} placeholder="450" required />
             </div>
           </div>
-          <div className="form-group" style={{ marginTop: '12px' }}>
-            <label>Описание</label>
-            <input value={form.description} onChange={set('description')} placeholder="Томат, моцарелла, базилик" />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '12px' }}>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label>Описание</label>
+              <input value={form.description} onChange={set('description')} placeholder="Томат, моцарелла, базилик" />
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label>Категория</label>
+              <input value={form.category} onChange={set('category')} placeholder="Горячее, Напитки, Десерты..." />
+            </div>
           </div>
           <div className="form-group" style={{ marginTop: '12px' }}>
             <label>Фото (URL изображения)</label>
@@ -163,9 +191,15 @@ export default function Products() {
                     <input type="number" min="0" step="0.01" value={editForm.price} onChange={setEdit('price')} />
                   </div>
                 </div>
-                <div className="form-group">
-                  <label>Описание</label>
-                  <input value={editForm.description} onChange={setEdit('description')} />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  <div className="form-group">
+                    <label>Описание</label>
+                    <input value={editForm.description} onChange={setEdit('description')} />
+                  </div>
+                  <div className="form-group">
+                    <label>Категория</label>
+                    <input value={editForm.category} onChange={setEdit('category')} placeholder="Горячее, Напитки..." />
+                  </div>
                 </div>
                 <div className="form-group">
                   <label>Фото (URL)</label>
@@ -197,14 +231,35 @@ export default function Products() {
                   />
                 )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <h3 style={{ fontSize: '15px', fontWeight: 600 }}>{p.name}</h3>
-                  <div style={{ display: 'flex', gap: '6px', flexShrink: 0, marginLeft: '8px' }}>
+                  <div>
+                    <h3 style={{ fontSize: '15px', fontWeight: 600 }}>{p.name}</h3>
+                    <div style={{ display: 'flex', gap: '6px', marginTop: '4px', flexWrap: 'wrap' }}>
+                      {p.category && (
+                        <span style={{ fontSize: '11px', color: '#6b7280', background: '#f3f4f6', padding: '2px 8px', borderRadius: '4px' }}>
+                          {p.category}
+                        </span>
+                      )}
+                      {!p.isAvailable && (
+                        <span style={{ fontSize: '11px', color: '#dc2626', fontWeight: 600, background: '#fee2e2', padding: '2px 6px', borderRadius: '4px' }}>
+                          Нет в наличии
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px', flexShrink: 0, marginLeft: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                     <button
                       onClick={() => startEdit(p)}
                       className="btn-outline"
                       style={{ padding: '4px 10px', fontSize: '12px' }}
                     >
                       Изменить
+                    </button>
+                    <button
+                      onClick={() => handleToggleAvailable(p)}
+                      className={p.isAvailable ? 'btn-outline' : 'btn-success'}
+                      style={{ padding: '4px 10px', fontSize: '12px' }}
+                    >
+                      {p.isAvailable ? 'Скрыть' : 'Показать'}
                     </button>
                     <button
                       onClick={() => handleDelete(p.id)}

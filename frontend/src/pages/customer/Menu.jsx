@@ -90,34 +90,57 @@ export default function Menu() {
 
       {products.length === 0 && <p className="text-gray">Меню пока пусто.</p>}
 
-      <div className="grid grid-2">
-        {products.map(p => (
-          <div key={p.id} className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div>
-                <h3 style={{ fontSize: '15px', fontWeight: 600 }}>{p.name}</h3>
-                {p.description && <p className="text-sm text-gray" style={{ marginTop: '2px' }}>{p.description}</p>}
-                <p style={{ marginTop: '8px', fontWeight: 700, color: '#2563eb' }}>{p.price} ₽</p>
-              </div>
+      {(() => {
+        const grouped = products.reduce((acc, p) => {
+          const key = p.category || 'Остальное';
+          if (!acc[key]) acc[key] = [];
+          acc[key].push(p);
+          return acc;
+        }, {});
+        return Object.entries(grouped).map(([category, items]) => (
+          <div key={category}>
+            {Object.keys(grouped).length > 1 && (
+              <h3 style={{ fontSize: '16px', fontWeight: 700, margin: '20px 0 10px' }}>{category}</h3>
+            )}
+            <div className="grid grid-2">
+              {items.map(p => (
+                <div key={p.id} className="card">
+                  {p.imageUrl && (
+                    <img
+                      src={p.imageUrl}
+                      alt={p.name}
+                      style={{ width: '100%', height: '140px', objectFit: 'cover', borderRadius: '8px', marginBottom: '8px' }}
+                      onError={e => { e.target.style.display = 'none'; }}
+                    />
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                      <h3 style={{ fontSize: '15px', fontWeight: 600 }}>{p.name}</h3>
+                      {p.description && <p className="text-sm text-gray" style={{ marginTop: '2px' }}>{p.description}</p>}
+                      <p style={{ marginTop: '8px', fontWeight: 700, color: '#2563eb' }}>{p.price} ₽</p>
+                    </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                {cart[p.id] ? (
-                  <>
-                    <button onClick={() => changeQty(p.id, -1)} className="btn-outline"
-                      style={{ padding: '4px 10px', fontSize: '16px' }}>−</button>
-                    <span style={{ fontWeight: 700, minWidth: '20px', textAlign: 'center' }}>{cart[p.id]}</span>
-                    <button onClick={() => changeQty(p.id, +1)} className="btn-primary"
-                      style={{ padding: '4px 10px', fontSize: '16px' }}>+</button>
-                  </>
-                ) : (
-                  <button onClick={() => changeQty(p.id, +1)} className="btn-primary"
-                    style={{ padding: '6px 14px', fontSize: '13px' }}>Добавить</button>
-                )}
-              </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                      {cart[p.id] ? (
+                        <>
+                          <button onClick={() => changeQty(p.id, -1)} className="btn-outline"
+                            style={{ padding: '4px 10px', fontSize: '16px' }}>−</button>
+                          <span style={{ fontWeight: 700, minWidth: '20px', textAlign: 'center' }}>{cart[p.id]}</span>
+                          <button onClick={() => changeQty(p.id, +1)} className="btn-primary"
+                            style={{ padding: '4px 10px', fontSize: '16px' }}>+</button>
+                        </>
+                      ) : (
+                        <button onClick={() => changeQty(p.id, +1)} className="btn-primary"
+                          style={{ padding: '6px 14px', fontSize: '13px' }}>Добавить</button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-        ))}
-      </div>
+        ));
+      })()}
 
       {/* Cart / Order form */}
       {cartItems.length > 0 && (
