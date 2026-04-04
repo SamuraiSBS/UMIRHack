@@ -3,9 +3,11 @@ package com.umirhack.courier.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.umirhack.courier.BuildConfig
 import com.umirhack.courier.data.local.SessionState
 import com.umirhack.courier.data.local.SessionStorage
 import com.umirhack.courier.data.repository.CourierRepository
+import com.umirhack.courier.util.normalizeApiBaseUrl
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,7 +18,10 @@ import kotlinx.coroutines.launch
 data class AppUiState(
     val loading: Boolean = true,
     val submitting: Boolean = false,
+    val savingApiUrl: Boolean = false,
     val errorMessage: String? = null,
+    val infoMessage: String? = null,
+    val apiBaseUrl: String = BuildConfig.DEFAULT_API_BASE_URL,
     val session: SessionState = SessionState(),
 )
 
@@ -33,6 +38,7 @@ class AppViewModel(
                 _uiState.update {
                     it.copy(
                         loading = false,
+                        apiBaseUrl = session.apiBaseUrlOverride ?: BuildConfig.DEFAULT_API_BASE_URL,
                         session = session,
                     )
                 }
@@ -47,7 +53,7 @@ class AppViewModel(
         }
 
         viewModelScope.launch {
-            _uiState.update { it.copy(submitting = true, errorMessage = null) }
+            _uiState.update { it.copy(submitting = true, errorMessage = null, infoMessage = null) }
             runCatching { repository.login(email.trim(), password) }
                 .onSuccess { auth ->
                     if (auth.user.role != "COURIER") {
@@ -86,7 +92,7 @@ class AppViewModel(
         }
 
         viewModelScope.launch {
-            _uiState.update { it.copy(submitting = true, errorMessage = null) }
+            _uiState.update { it.copy(submitting = true, errorMessage = null, infoMessage = null) }
             runCatching {
                 repository.register(
                     name = name.trim(),
@@ -113,8 +119,47 @@ class AppViewModel(
         }
     }
 
+    fun saveApiBaseUrl(value: String) {
+        viewModelScope.launch {
+            val normalized = runCatching { normalizeApiBaseUrl(value) }
+                .getOrElse { error ->
+                    _uiState.update {
+                        it.copy(
+                            errorMessage = error.message ?: "Не удалось сохранить адрес сервера.",
+                            infoMessage = null,
+                        )
+                    }
+                    return@launch
+                }
+
+            _uiState.update { it.copy(savingApiUrl = true, errorMessage = null, infoMessage = null) }
+            sessionStorage.saveApiBaseUrl(normalized)
+            _uiState.update {
+                it.copy(
+                    savingApiUrl = false,
+                    apiBaseUrl = normalized,
+                    infoMessage = "Сервер обновлён: $normalized",
+                )
+            }
+        }
+    }
+
+    fun resetApiBaseUrl() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(savingApiUrl = true, errorMessage = null, infoMessage = null) }
+            sessionStorage.saveApiBaseUrl(null)
+            _uiState.update {
+                it.copy(
+                    savingApiUrl = false,
+                    apiBaseUrl = BuildConfig.DEFAULT_API_BASE_URL,
+                    infoMessage = "Возвращён адрес сборки по умолчанию.",
+                )
+            }
+        }
+    }
+
     fun clearError() {
-        _uiState.update { it.copy(errorMessage = null) }
+        _uiState.update { it.copy(errorMessage = null, infoMessage = null) }
     }
 
     companion object {

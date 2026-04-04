@@ -3,6 +3,7 @@ package com.umirhack.courier.ui.orders
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
@@ -19,23 +20,27 @@ import androidx.compose.ui.unit.dp
 import com.umirhack.courier.ui.CourierUiState
 import com.umirhack.courier.ui.components.EmptyStateCard
 import com.umirhack.courier.ui.components.ErrorCard
+import com.umirhack.courier.ui.components.InfoChip
+import com.umirhack.courier.ui.components.MerchantBanner
 import com.umirhack.courier.ui.components.MetricRow
+import com.umirhack.courier.ui.components.PromoHeroCard
 import com.umirhack.courier.ui.components.ScreenHeader
 import com.umirhack.courier.ui.components.SectionCard
+import com.umirhack.courier.ui.components.appScreenBrush
 import com.umirhack.courier.ui.theme.InfoSurface
 import com.umirhack.courier.ui.theme.SuccessSurface
 import com.umirhack.courier.ui.theme.WarningSurface
 import com.umirhack.courier.util.money
 
 private fun statusLabel(status: String): String = when (status) {
-    "ACCEPTED" -> "Принят — едете к точке выдачи"
+    "ACCEPTED" -> "Принят, едете к точке выдачи"
     "DELIVERING" -> "В пути к клиенту"
     "DONE" -> "Доставлен"
     else -> status
 }
 
 private fun nextActionLabel(status: String): String? = when (status) {
-    "ACCEPTED" -> "Забрал заказ — везу клиенту"
+    "ACCEPTED" -> "Забрал заказ, везу клиенту"
     "DELIVERING" -> "Доставил заказ"
     else -> null
 }
@@ -44,25 +49,27 @@ private fun nextActionLabel(status: String): String? = when (status) {
 fun ActiveOrderScreen(
     courierState: CourierUiState,
     onRefresh: () -> Unit,
+    onRefreshIfStale: () -> Unit,
     onAdvanceOrder: () -> Unit,
     onOpenOrders: () -> Unit,
     onClearError: () -> Unit,
 ) {
     LaunchedEffect(Unit) {
-        onRefresh()
+        onRefreshIfStale()
     }
 
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
+            .background(appScreenBrush()),
         contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         item {
             ScreenHeader(
+                kicker = "Active Route",
                 title = "Мой заказ",
-                subtitle = "Здесь показан текущий активный заказ и следующие шаги доставки.",
+                subtitle = "Текущий маршрут, клиентский адрес и следующий статус в одном экране.",
             )
         }
 
@@ -77,15 +84,39 @@ fun ActiveOrderScreen(
             item {
                 EmptyStateCard(
                     title = "Нет активного заказа",
-                    message = "После принятия заказа здесь появятся адрес клиента, состав заказа и кнопка смены статуса.",
+                    message = "Когда вы примете заказ в ленте, здесь появится маршрут, состав и кнопка смены статуса.",
                     action = {
                         OutlinedButton(onClick = onOpenOrders) {
-                            Text("Смотреть доступные заказы")
+                            Text("Открыть доступные заказы")
                         }
                     },
                 )
             }
         } else {
+            item {
+                PromoHeroCard(
+                    badge = when (activeOrder.status) {
+                        "ACCEPTED" -> "Pickup"
+                        "DELIVERING" -> "Delivery"
+                        else -> "Done"
+                    },
+                    title = statusLabel(activeOrder.status),
+                    subtitle = "Переключение статусов идёт напрямую через серверный backend, без локального IP.",
+                    accentColor = when (activeOrder.status) {
+                        "ACCEPTED" -> MaterialTheme.colorScheme.primary
+                        "DELIVERING" -> MaterialTheme.colorScheme.tertiary
+                        else -> MaterialTheme.colorScheme.secondary
+                    },
+                ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        InfoChip(text = activeOrder.business.name)
+                        activeOrder.deliveryFee?.let { fee ->
+                            InfoChip(text = "+${money(fee)}")
+                        }
+                    }
+                }
+            }
+
             item {
                 SectionCard(
                     containerColor = when (activeOrder.status) {
@@ -93,25 +124,22 @@ fun ActiveOrderScreen(
                         "DELIVERING" -> WarningSurface
                         else -> SuccessSurface
                     },
-                    borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                    borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
                 ) {
-                    Text(
-                        text = statusLabel(activeOrder.status),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary,
+                    MerchantBanner(
+                        title = activeOrder.business.name,
+                        subtitle = activeOrder.tradingPoint?.let { "${it.name} • ${it.address}" } ?: "Точка выдачи не указана",
                     )
-                }
-            }
-
-            item {
-                SectionCard {
-                    Text(activeOrder.business.name, style = MaterialTheme.typography.titleLarge)
+                    MetricRow(label = "Клиент", value = activeOrder.customer?.name ?: activeOrder.customer?.email.orEmpty())
                     MetricRow(label = "Адрес доставки", value = activeOrder.address.orEmpty())
-                    MetricRow(
-                        label = "Клиент",
-                        value = activeOrder.customer?.name ?: activeOrder.customer?.email.orEmpty(),
-                    )
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f))
+                    activeOrder.deliveryFee?.let { fee ->
+                        MetricRow(
+                            label = "Доход по доставке",
+                            value = money(fee),
+                            valueColor = MaterialTheme.colorScheme.secondary,
+                        )
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
                     Text("Состав заказа", style = MaterialTheme.typography.titleMedium)
                     activeOrder.items.forEach { item ->
                         val sum = (item.product.price ?: 0.0) * item.quantity
@@ -120,15 +148,8 @@ fun ActiveOrderScreen(
                             value = money(sum),
                         )
                     }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
                     MetricRow(label = "Итого", value = money(activeOrder.totalPrice))
-                    activeOrder.deliveryFee?.let { fee ->
-                        MetricRow(
-                            label = "Доход по доставке",
-                            value = money(fee),
-                            valueColor = MaterialTheme.colorScheme.secondary,
-                        )
-                    }
                     nextActionLabel(activeOrder.status)?.let { nextAction ->
                         Button(
                             onClick = onAdvanceOrder,
@@ -140,22 +161,27 @@ fun ActiveOrderScreen(
                             )
                         }
                     }
+                    OutlinedButton(
+                        onClick = onRefresh,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Обновить заказ")
+                    }
                 }
             }
         }
 
         if (courierState.completedToday.isNotEmpty()) {
             item {
-                Text("Сегодня уже доставлено", style = MaterialTheme.typography.titleMedium)
+                Text("Сегодня уже доставлено", style = MaterialTheme.typography.titleLarge)
             }
             items(courierState.completedToday, key = { it.id }) { order ->
                 SectionCard {
-                    Text(order.business.name, style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        text = order.address.orEmpty(),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    MerchantBanner(
+                        title = order.business.name,
+                        subtitle = order.address.orEmpty(),
                     )
-                    MetricRow(label = "Заработок", value = money(order.deliveryFee))
+                    MetricRow(label = "Доход", value = money(order.deliveryFee))
                 }
             }
         }

@@ -1,5 +1,7 @@
 package com.umirhack.courier.ui
 
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -10,6 +12,7 @@ import androidx.compose.material.icons.outlined.LocalShipping
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -30,6 +33,7 @@ import com.umirhack.courier.ui.dashboard.DashboardScreen
 import com.umirhack.courier.ui.history.HistoryScreen
 import com.umirhack.courier.ui.orders.ActiveOrderScreen
 import com.umirhack.courier.ui.orders.AvailableOrdersScreen
+import com.umirhack.courier.ui.theme.SurfaceMuted
 
 private data class BottomDestination(
     val route: String,
@@ -67,6 +71,8 @@ fun CourierApp(
             appState = appState,
             onLogin = appViewModel::login,
             onRegister = appViewModel::register,
+            onSaveApiBaseUrl = appViewModel::saveApiBaseUrl,
+            onResetApiBaseUrl = appViewModel::resetApiBaseUrl,
             onDismissError = appViewModel::clearError,
         )
         return
@@ -81,7 +87,10 @@ fun CourierApp(
     Scaffold(
         containerColor = androidx.compose.material3.MaterialTheme.colorScheme.background,
         bottomBar = {
-            NavigationBar {
+            NavigationBar(
+                containerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface,
+                tonalElevation = 0.dp,
+            ) {
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentDestination = navBackStackEntry?.destination
                 bottomDestinations.forEach { item ->
@@ -98,6 +107,13 @@ fun CourierApp(
                         },
                         icon = item.icon,
                         label = { Text(item.label) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = androidx.compose.material3.MaterialTheme.colorScheme.primary,
+                            selectedTextColor = androidx.compose.material3.MaterialTheme.colorScheme.onSurface,
+                            indicatorColor = SurfaceMuted,
+                            unselectedIconColor = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
+                            unselectedTextColor = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
+                        ),
                     )
                 }
             }
@@ -106,6 +122,10 @@ fun CourierApp(
         NavHost(
             navController = navController,
             startDestination = "dashboard",
+            enterTransition = { EnterTransition.None },
+            exitTransition = { ExitTransition.None },
+            popEnterTransition = { EnterTransition.None },
+            popExitTransition = { ExitTransition.None },
             modifier = Modifier
                 .padding(innerPadding)
                 .consumeWindowInsets(innerPadding),
@@ -116,6 +136,9 @@ fun CourierApp(
                     courierState = courierState,
                     onToggleShift = courierViewModel::toggleShift,
                     onRefresh = { courierViewModel.refresh() },
+                    onRefreshIfStale = { courierViewModel.refreshIfStale(showLoader = true) },
+                    onSaveApiBaseUrl = appViewModel::saveApiBaseUrl,
+                    onResetApiBaseUrl = appViewModel::resetApiBaseUrl,
                     onLogout = appViewModel::logout,
                     onClearError = {
                         appViewModel.clearError()
@@ -127,6 +150,7 @@ fun CourierApp(
                 AvailableOrdersScreen(
                     courierState = courierState,
                     onRefresh = { courierViewModel.refresh(showLoader = false) },
+                    onRefreshIfStale = { courierViewModel.refreshIfStale() },
                     onAcceptOrder = { orderId ->
                         courierViewModel.acceptOrder(orderId) {
                             navController.navigate("active") {
@@ -141,6 +165,7 @@ fun CourierApp(
                 ActiveOrderScreen(
                     courierState = courierState,
                     onRefresh = { courierViewModel.refresh() },
+                    onRefreshIfStale = { courierViewModel.refreshIfStale() },
                     onAdvanceOrder = {
                         courierViewModel.advanceActiveOrder {
                             navController.navigate("dashboard") {
@@ -160,6 +185,7 @@ fun CourierApp(
                 HistoryScreen(
                     courierState = courierState,
                     onRefresh = { courierViewModel.refresh() },
+                    onRefreshIfStale = { courierViewModel.refreshIfStale() },
                     onClearError = courierViewModel::clearError,
                 )
             }

@@ -12,6 +12,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 class ApiProvider(private val sessionStorage: SessionStorage) {
     suspend fun api(): CourierApi {
         val session = sessionStorage.session.first()
+        val baseUrl = session.apiBaseUrlOverride ?: BuildConfig.DEFAULT_API_BASE_URL
         val authInterceptor = Interceptor { chain ->
             val original = chain.request()
             val requestBuilder = original.newBuilder()
@@ -31,7 +32,7 @@ class ApiProvider(private val sessionStorage: SessionStorage) {
             .build()
 
         return Retrofit.Builder()
-            .baseUrl(BuildConfig.DEFAULT_API_BASE_URL)
+            .baseUrl(baseUrl)
             .client(client)
             .addConverterFactory(GsonConverterFactory.create())
             .build()

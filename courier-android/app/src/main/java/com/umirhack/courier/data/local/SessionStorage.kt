@@ -21,6 +21,7 @@ data class SessionState(
     val userEmail: String? = null,
     val userName: String? = null,
     val userRole: String? = null,
+    val apiBaseUrlOverride: String? = null,
 ) {
     val isAuthenticated: Boolean
         get() = !token.isNullOrBlank() && userRole == "COURIER"
@@ -33,6 +34,7 @@ class SessionStorage(private val context: Context) {
         val userEmail = stringPreferencesKey("user_email")
         val userName = stringPreferencesKey("user_name")
         val userRole = stringPreferencesKey("user_role")
+        val apiBaseUrl = stringPreferencesKey("api_base_url")
     }
 
     val session: Flow<SessionState> = context.dataStore.data
@@ -67,6 +69,16 @@ class SessionStorage(private val context: Context) {
         }
     }
 
+    suspend fun saveApiBaseUrl(baseUrl: String?) {
+        context.dataStore.edit { prefs ->
+            if (baseUrl.isNullOrBlank()) {
+                prefs.remove(Keys.apiBaseUrl)
+            } else {
+                prefs[Keys.apiBaseUrl] = baseUrl
+            }
+        }
+    }
+
     private fun toSessionState(prefs: Preferences): SessionState {
         return SessionState(
             token = prefs[Keys.token],
@@ -74,6 +86,7 @@ class SessionStorage(private val context: Context) {
             userEmail = prefs[Keys.userEmail],
             userName = prefs[Keys.userName].takeUnless { it.isNullOrBlank() },
             userRole = prefs[Keys.userRole],
+            apiBaseUrlOverride = prefs[Keys.apiBaseUrl].takeUnless { it.isNullOrBlank() },
         )
     }
 }

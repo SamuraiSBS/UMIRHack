@@ -20,6 +20,7 @@ data class CourierUiState(
     val isShiftUpdating: Boolean = false,
     val acceptingOrderId: String? = null,
     val isUpdatingActiveOrder: Boolean = false,
+    val lastUpdatedAtMillis: Long? = null,
     val shiftActive: Boolean = false,
     val availableOrders: List<OrderDto> = emptyList(),
     val activeOrder: OrderDto? = null,
@@ -33,6 +34,14 @@ class CourierViewModel(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(CourierUiState())
     val uiState: StateFlow<CourierUiState> = _uiState.asStateFlow()
+
+    fun refreshIfStale(maxAgeMillis: Long = 15_000L, showLoader: Boolean = false) {
+        val lastUpdated = _uiState.value.lastUpdatedAtMillis
+        val shouldRefresh = lastUpdated == null || System.currentTimeMillis() - lastUpdated > maxAgeMillis
+        if (shouldRefresh) {
+            refresh(showLoader = showLoader)
+        }
+    }
 
     fun refresh(showLoader: Boolean = true) {
         viewModelScope.launch {
@@ -60,6 +69,7 @@ class CourierViewModel(
                         activeOrder = activeOrder,
                         completedOrders = completed,
                         completedToday = completed.filter { order -> isToday(order.createdAt) },
+                        lastUpdatedAtMillis = System.currentTimeMillis(),
                         errorMessage = null,
                     )
                 }
