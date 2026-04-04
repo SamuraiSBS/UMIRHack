@@ -161,6 +161,7 @@ export default function Menu() {
   const [success, setSuccess] = useState('');
   const [modalProduct, setModalProduct] = useState(null);
   const [showOrderForm, setShowOrderForm] = useState(false);
+  const [city, setCity] = useState(CITY_OPTIONS[0].value);
 
   const cityConfig = useMemo(() => getCityConfig(city), [city]);
 
@@ -567,6 +568,15 @@ export default function Menu() {
 
             <form onSubmit={handleOrder}>
               <div className="form-group">
+                <label>Город</label>
+                <select value={city} onChange={e => setCity(e.target.value)}>
+                  {CITY_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.value}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
                 <label>Адрес доставки</label>
                 <input
                   value={address}
@@ -574,6 +584,20 @@ export default function Menu() {
                   placeholder="ул. Пушкина, д. 1, кв. 10"
                   required
                 />
+              </div>
+
+              <div className="form-group">
+                <label>Точка на карте</label>
+                <LeafletMap
+                  center={cityConfig.center}
+                  zoom={cityConfig.zoom}
+                  markerPosition={deliveryPoint}
+                  onClick={handleMapClick}
+                  style={{ height: '200px', borderRadius: '12px' }}
+                />
+                <p style={{ fontSize: '12px', color: '#9E9E9E', marginTop: '6px' }}>
+                  {resolvingPoint ? 'Определяем адрес...' : 'Нажмите на карту, чтобы указать точку доставки.'}
+                </p>
               </div>
 
               {tradingPoints.length > 0 && (
