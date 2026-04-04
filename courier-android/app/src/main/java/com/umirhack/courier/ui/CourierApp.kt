@@ -71,8 +71,6 @@ fun CourierApp(
             appState = appState,
             onLogin = appViewModel::login,
             onRegister = appViewModel::register,
-            onSaveApiBaseUrl = appViewModel::saveApiBaseUrl,
-            onResetApiBaseUrl = appViewModel::resetApiBaseUrl,
             onDismissError = appViewModel::clearError,
         )
         return
@@ -137,8 +135,6 @@ fun CourierApp(
                     onToggleShift = courierViewModel::toggleShift,
                     onRefresh = { courierViewModel.refresh() },
                     onRefreshIfStale = { courierViewModel.refreshIfStale(showLoader = true) },
-                    onSaveApiBaseUrl = appViewModel::saveApiBaseUrl,
-                    onResetApiBaseUrl = appViewModel::resetApiBaseUrl,
                     onLogout = appViewModel::logout,
                     onClearError = {
                         appViewModel.clearError()
@@ -150,7 +146,6 @@ fun CourierApp(
                 AvailableOrdersScreen(
                     courierState = courierState,
                     onRefresh = { courierViewModel.refresh(showLoader = false) },
-                    onRefreshIfStale = { courierViewModel.refreshIfStale() },
                     onAcceptOrder = { orderId ->
                         courierViewModel.acceptOrder(orderId) {
                             navController.navigate("active") {
@@ -166,13 +161,7 @@ fun CourierApp(
                     courierState = courierState,
                     onRefresh = { courierViewModel.refresh() },
                     onRefreshIfStale = { courierViewModel.refreshIfStale() },
-                    onAdvanceOrder = {
-                        courierViewModel.advanceActiveOrder {
-                            navController.navigate("dashboard") {
-                                launchSingleTop = true
-                            }
-                        }
-                    },
+                    onAdvanceOrder = { courierViewModel.advanceActiveOrder() },
                     onOpenOrders = {
                         navController.navigate("available") {
                             launchSingleTop = true

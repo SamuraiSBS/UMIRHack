@@ -13,13 +13,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -27,7 +23,6 @@ import com.umirhack.courier.ui.AppUiState
 import com.umirhack.courier.ui.CourierUiState
 import com.umirhack.courier.ui.components.EmptyStateCard
 import com.umirhack.courier.ui.components.ErrorCard
-import com.umirhack.courier.ui.components.InfoCard
 import com.umirhack.courier.ui.components.InfoChip
 import com.umirhack.courier.ui.components.MerchantBanner
 import com.umirhack.courier.ui.components.MetricRow
@@ -36,9 +31,7 @@ import com.umirhack.courier.ui.components.ScreenHeader
 import com.umirhack.courier.ui.components.SectionCard
 import com.umirhack.courier.ui.components.appScreenBrush
 import com.umirhack.courier.ui.theme.SuccessSurface
-import com.umirhack.courier.util.formatApiHost
 import com.umirhack.courier.util.formatOrderCode
-import com.umirhack.courier.util.isLocalApiUrl
 import com.umirhack.courier.util.money
 
 private fun orderStatusLabel(status: String): String = when (status) {
@@ -55,8 +48,6 @@ fun DashboardScreen(
     onToggleShift: () -> Unit,
     onRefresh: () -> Unit,
     onRefreshIfStale: () -> Unit,
-    onSaveApiBaseUrl: (String) -> Unit,
-    onResetApiBaseUrl: () -> Unit,
     onLogout: () -> Unit,
     onClearError: () -> Unit,
 ) {
@@ -65,7 +56,6 @@ fun DashboardScreen(
     }
 
     val greetingName = appState.session.userName ?: appState.session.userEmail.orEmpty()
-    var apiUrlDraft by rememberSaveable(appState.apiBaseUrl) { androidx.compose.runtime.mutableStateOf(appState.apiBaseUrl) }
 
     LazyColumn(
         modifier = Modifier
@@ -78,7 +68,7 @@ fun DashboardScreen(
             ScreenHeader(
                 kicker = "Courier Hub",
                 title = "На линии, $greetingName",
-                subtitle = "Подключено к ${formatApiHost(appState.apiBaseUrl)}. В этом блоке всё, что нужно курьеру в течение смены.",
+                subtitle = "В этом блоке всё, что нужно курьеру в течение смены.",
             )
         }
 
@@ -96,11 +86,6 @@ fun DashboardScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     InfoChip(
                         text = if (courierState.shiftActive) "Онлайн" else "Оффлайн",
-                        containerColor = Color.Black.copy(alpha = 0.22f),
-                        contentColor = MaterialTheme.colorScheme.onSurface,
-                    )
-                    InfoChip(
-                        text = formatApiHost(appState.apiBaseUrl),
                         containerColor = Color.Black.copy(alpha = 0.22f),
                         contentColor = MaterialTheme.colorScheme.onSurface,
                     )
@@ -130,56 +115,10 @@ fun DashboardScreen(
             }
         }
 
-        val notice = appState.infoMessage
-        if (notice != null) {
-            item {
-                InfoCard(message = notice)
-            }
-        }
-
         val errorMessage = appState.errorMessage ?: courierState.errorMessage
         if (errorMessage != null) {
             item {
                 ErrorCard(message = errorMessage, onDismiss = onClearError)
-            }
-        }
-
-        if (isLocalApiUrl(appState.apiBaseUrl)) {
-            item {
-                InfoCard(
-                    message = "Сейчас выбран локальный адрес API. Для работы курьеров на реальных устройствах вставьте Render-домен или Netlify-домен с прокси на backend.",
-                )
-            }
-        }
-
-        item {
-            SectionCard {
-                Text("Сервер приложения", style = MaterialTheme.typography.titleLarge)
-                Text(
-                    text = "Можно вставить `https://umirhack-backend.onrender.com` или `https://umirhack-teronit.netlify.app`. Суффикс `/api` добавится автоматически.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                OutlinedTextField(
-                    value = apiUrlDraft,
-                    onValueChange = { apiUrlDraft = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    label = { Text("API base URL") },
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = { onSaveApiBaseUrl(apiUrlDraft) },
-                        enabled = !appState.savingApiUrl,
-                    ) {
-                        Text(if (appState.savingApiUrl) "Сохраняем..." else "Сохранить сервер")
-                    }
-                    OutlinedButton(
-                        onClick = onResetApiBaseUrl,
-                        enabled = !appState.savingApiUrl,
-                    ) {
-                        Text("Сбросить")
-                    }
-                }
             }
         }
 

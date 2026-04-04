@@ -24,6 +24,7 @@ data class CourierUiState(
     val shiftActive: Boolean = false,
     val availableOrders: List<OrderDto> = emptyList(),
     val activeOrder: OrderDto? = null,
+    val recentCompletedOrder: OrderDto? = null,
     val completedOrders: List<OrderDto> = emptyList(),
     val completedToday: List<OrderDto> = emptyList(),
     val errorMessage: String? = null,
@@ -62,11 +63,13 @@ class CourierViewModel(
                 val activeOrder = orders.firstOrNull { it.status in ACTIVE_STATUSES }
                 val completed = orders.filter { it.status == "DONE" }
                 _uiState.update {
+                    val recentCompletedOrder = if (activeOrder == null) it.recentCompletedOrder else null
                     it.copy(
                         isLoading = false,
                         shiftActive = shiftActive,
                         availableOrders = available,
                         activeOrder = activeOrder,
+                        recentCompletedOrder = recentCompletedOrder,
                         completedOrders = completed,
                         completedToday = completed.filter { order -> isToday(order.createdAt) },
                         lastUpdatedAtMillis = System.currentTimeMillis(),
@@ -109,10 +112,18 @@ class CourierViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(acceptingOrderId = orderId, errorMessage = null) }
             runCatching { repository.acceptOrder(orderId) }
-                .onSuccess {
-                    _uiState.update { it.copy(acceptingOrderId = null) }
-                    refresh(showLoader = false)
+                .onSuccess { acceptedOrder ->
+                    _uiState.update {
+                        it.copy(
+                            acceptingOrderId = null,
+                            activeOrder = acceptedOrder,
+                            recentCompletedOrder = null,
+                            availableOrders = it.availableOrders.filterNot { order -> order.id == orderId },
+                            lastUpdatedAtMillis = System.currentTimeMillis(),
+                        )
+                    }
                     onSuccess()
+                    refresh(showLoader = false)
                 }
                 .onFailure { error ->
                     _uiState.update {
@@ -126,7 +137,7 @@ class CourierViewModel(
         }
     }
 
-    fun advanceActiveOrder(onCompleted: () -> Unit) {
+    fun advanceActiveOrder() {
         val order = _uiState.value.activeOrder ?: return
         val nextStatus = when (order.status) {
             "ACCEPTED" -> "DELIVERING"
@@ -137,12 +148,28 @@ class CourierViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isUpdatingActiveOrder = true, errorMessage = null) }
             runCatching { repository.updateOrderStatus(order.id, nextStatus) }
-                .onSuccess {
-                    _uiState.update { it.copy(isUpdatingActiveOrder = false) }
-                    refresh(showLoader = false)
-                    if (nextStatus == "DONE") {
-                        onCompleted()
+                .onSuccess { updatedOrder ->
+                    _uiState.update {
+                        val updatedCompletedOrders = if (updatedOrder.status == "DONE") {
+                            listOf(updatedOrder) + it.completedOrders.filterNot { completed -> completed.id == updatedOrder.id }
+                        } else {
+                            it.completedOrders
+                        }
+                        val updatedCompletedToday = if (updatedOrder.status == "DONE" && isToday(updatedOrder.createdAt)) {
+                            listOf(updatedOrder) + it.completedToday.filterNot { completed -> completed.id == updatedOrder.id }
+                        } else {
+                            it.completedToday
+                        }
+                        it.copy(
+                            isUpdatingActiveOrder = false,
+                            activeOrder = updatedOrder.takeIf { current -> current.status in ACTIVE_STATUSES },
+                            recentCompletedOrder = updatedOrder.takeIf { current -> current.status == "DONE" },
+                            completedOrders = updatedCompletedOrders,
+                            completedToday = updatedCompletedToday,
+                            lastUpdatedAtMillis = System.currentTimeMillis(),
+                        )
                     }
+                    refresh(showLoader = false)
                 }
                 .onFailure { error ->
                     _uiState.update {

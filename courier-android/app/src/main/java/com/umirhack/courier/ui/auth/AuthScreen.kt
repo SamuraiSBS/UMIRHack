@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,7 +15,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -32,14 +30,9 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.umirhack.courier.ui.AppUiState
 import com.umirhack.courier.ui.components.ErrorCard
-import com.umirhack.courier.ui.components.InfoCard
-import com.umirhack.courier.ui.components.InfoChip
 import com.umirhack.courier.ui.components.PromoHeroCard
-import com.umirhack.courier.ui.components.ScreenHeader
 import com.umirhack.courier.ui.components.SectionCard
 import com.umirhack.courier.ui.components.appScreenBrush
-import com.umirhack.courier.util.formatApiHost
-import com.umirhack.courier.util.isLocalApiUrl
 
 private enum class AuthMode { LOGIN, REGISTER }
 
@@ -49,8 +42,6 @@ fun AuthScreen(
     appState: AppUiState,
     onLogin: (String, String) -> Unit,
     onRegister: (String, String, String, String) -> Unit,
-    onSaveApiBaseUrl: (String) -> Unit,
-    onResetApiBaseUrl: () -> Unit,
     onDismissError: () -> Unit,
 ) {
     var mode by rememberSaveable { mutableStateOf(AuthMode.LOGIN) }
@@ -58,7 +49,6 @@ fun AuthScreen(
     var email by rememberSaveable { mutableStateOf("courier@demo.com") }
     var password by rememberSaveable { mutableStateOf("demo123") }
     var deliveryZone by rememberSaveable { mutableStateOf("Центральный район") }
-    var apiUrlDraft by rememberSaveable(appState.apiBaseUrl) { mutableStateOf(appState.apiBaseUrl) }
 
     Column(
         modifier = Modifier
@@ -71,64 +61,14 @@ fun AuthScreen(
         PromoHeroCard(
             badge = "-400Р",
             title = "Курьерский кабинет в тёмном маркетплейс-стиле",
-            subtitle = "Подключите серверный адрес, войдите в аккаунт и работайте с доставками без привязки к IP вашего ПК.",
-        ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                InfoChip(text = formatApiHost(appState.apiBaseUrl))
-                InfoChip(text = "Быстрые вкладки")
-            }
-        }
-
-        ScreenHeader(
-            kicker = "Server",
-            title = "Подключение к API",
-            subtitle = "Поддерживается Render-домен или Netlify-домен с проксированием на backend.",
+            subtitle = "Войдите в аккаунт и работайте с доставками без лишних переключений и задержек интерфейса.",
         )
-
-        if (appState.infoMessage != null) {
-            InfoCard(message = appState.infoMessage)
-        }
-
-        if (isLocalApiUrl(appState.apiBaseUrl)) {
-            InfoCard(
-                message = "Сейчас адрес указывает на локальную среду. Для реальных курьеров укажите публичный сервер.",
-            )
-        }
 
         appState.errorMessage?.let { message ->
             ErrorCard(
                 message = message,
                 onDismiss = onDismissError,
             )
-        }
-
-        SectionCard {
-            OutlinedTextField(
-                value = apiUrlDraft,
-                onValueChange = { apiUrlDraft = it },
-                label = { Text("API base URL") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-            )
-            Text(
-                text = "Можно вставить `https://umirhack-teronit.netlify.app`, `https://umirhack-backend.onrender.com` или полный адрес с `/api`.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    onClick = { onSaveApiBaseUrl(apiUrlDraft) },
-                    enabled = !appState.savingApiUrl,
-                ) {
-                    Text(if (appState.savingApiUrl) "Сохраняем..." else "Сохранить сервер")
-                }
-                OutlinedButton(
-                    onClick = onResetApiBaseUrl,
-                    enabled = !appState.savingApiUrl,
-                ) {
-                    Text("Сбросить")
-                }
-            }
         }
 
         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
