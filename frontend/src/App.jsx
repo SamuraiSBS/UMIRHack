@@ -11,6 +11,7 @@ import Register from './pages/auth/Register';
 import BusinessList from './pages/customer/BusinessList';
 import Menu from './pages/customer/Menu';
 import MyOrders from './pages/customer/MyOrders';
+import Cart from './pages/customer/Cart';
 
 // Courier pages
 import ShiftControl from './pages/courier/ShiftControl';
@@ -52,6 +53,7 @@ export default function App() {
         <Route path="/shops" element={<ProtectedRoute roles={['CUSTOMER']}><BusinessList /></ProtectedRoute>} />
         <Route path="/shops/:id/menu" element={<ProtectedRoute roles={['CUSTOMER']}><Menu /></ProtectedRoute>} />
         <Route path="/orders" element={<ProtectedRoute roles={['CUSTOMER']}><MyOrders /></ProtectedRoute>} />
+        <Route path="/cart" element={<ProtectedRoute roles={['CUSTOMER']}><Cart /></ProtectedRoute>} />
 
         {/* Courier routes */}
         <Route path="/courier" element={<ProtectedRoute roles={['COURIER']}><ShiftControl /></ProtectedRoute>} />

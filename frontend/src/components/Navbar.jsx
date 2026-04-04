@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Navbar() {
@@ -14,6 +14,30 @@ export default function Navbar() {
   }
 
   const isCustomer = user?.role === 'CUSTOMER';
+  const location = useLocation();
+
+  // Count total items in all carts from localStorage
+  const [cartCount, setCartCount] = useState(0);
+  useEffect(() => {
+    if (!isCustomer) return;
+    function countCart() {
+      let total = 0;
+      for (const key of Object.keys(localStorage)) {
+        if (key.startsWith('cart_')) {
+          try {
+            const cart = JSON.parse(localStorage.getItem(key) || '{}');
+            total += Object.values(cart).reduce((s, v) => s + v, 0);
+          } catch { /* skip */ }
+        }
+      }
+      setCartCount(total);
+    }
+    countCart();
+    window.addEventListener('storage', countCart);
+    // Poll on route change to catch in-page updates
+    const interval = setInterval(countCart, 1000);
+    return () => { window.removeEventListener('storage', countCart); clearInterval(interval); };
+  }, [isCustomer, location.pathname]);
 
   // Build nav links based on role
   const navLinks = [];
@@ -95,6 +119,32 @@ export default function Navbar() {
 
         {/* Right side */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+          {isCustomer && (
+            <Link to="/cart" style={{ position: 'relative', flexShrink: 0 }}>
+              <button style={{
+                background: cartCount > 0 ? '#FFD600' : '#2A2A2A',
+                color: cartCount > 0 ? '#1C1C1C' : '#9E9E9E',
+                border: 'none', borderRadius: '10px',
+                width: '40px', height: '36px',
+                fontSize: '18px', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                position: 'relative',
+                transition: 'background 0.2s',
+              }}>
+                🛒
+                {cartCount > 0 && (
+                  <span style={{
+                    position: 'absolute', top: '-6px', right: '-6px',
+                    background: '#FF4444', color: '#FFFFFF',
+                    borderRadius: '50%', width: '18px', height: '18px',
+                    fontSize: '11px', fontWeight: 700,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>{cartCount > 99 ? '99+' : cartCount}</span>
+                )}
+              </button>
+            </Link>
+          )}
+
           {user && (
             <>
               <div style={{
