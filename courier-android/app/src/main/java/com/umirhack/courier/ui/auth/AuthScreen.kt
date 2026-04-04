@@ -49,7 +49,7 @@ fun AuthScreen(
     var name by rememberSaveable { mutableStateOf("") }
     var email by rememberSaveable { mutableStateOf("courier@demo.com") }
     var password by rememberSaveable { mutableStateOf("demo123") }
-    var deliveryZone by rememberSaveable { mutableStateOf("Центральный район") }
+    var deliveryZone by rememberSaveable { mutableStateOf("Ростов-на-Дону") }
 
     Column(
         modifier = Modifier

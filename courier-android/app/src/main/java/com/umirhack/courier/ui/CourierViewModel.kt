@@ -23,7 +23,7 @@ data class CourierUiState(
     val isUpdatingActiveOrder: Boolean = false,
     val lastUpdatedAtMillis: Long? = null,
     val shiftActive: Boolean = false,
-    val selectedCity: String = "Москва",
+    val selectedCity: String = "Ростов-на-Дону",
     val availableOrders: List<OrderDto> = emptyList(),
     val activeOrder: OrderDto? = null,
     val recentCompletedOrder: OrderDto? = null,
