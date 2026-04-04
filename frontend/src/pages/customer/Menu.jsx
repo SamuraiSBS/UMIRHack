@@ -440,11 +440,13 @@ export default function Menu() {
                   <button onClick={() => changeQty(productId, -1)} style={{
                     background: '#2A2A2A', border: 'none', borderRadius: '50%',
                     width: '28px', height: '28px', color: '#FFFFFF', cursor: 'pointer', fontSize: '16px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>−</button>
                   <span style={{ color: '#FFFFFF', fontWeight: 600, minWidth: '20px', textAlign: 'center' }}>{quantity}</span>
                   <button onClick={() => changeQty(productId, +1)} style={{
                     background: '#2A2A2A', border: 'none', borderRadius: '50%',
                     width: '28px', height: '28px', color: '#FFFFFF', cursor: 'pointer', fontSize: '16px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>+</button>
                   <span style={{ color: '#FFFFFF', fontWeight: 600, minWidth: '60px', textAlign: 'right' }}>
                     {(product.price * quantity).toFixed(0)} ₽

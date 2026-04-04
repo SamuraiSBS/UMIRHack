@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import api from '../../api/client';
 
 // Deterministic "rating" and "delivery time" from business id (for demo)
@@ -47,10 +47,33 @@ function shuffleArray(arr) {
 }
 
 export default function BusinessList() {
+  const navigate = useNavigate();
   const [businesses, setBusinesses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [allProducts, setAllProducts] = useState([]);
+  const [carts, setCarts] = useState({}); // { businessId: { productId: qty } }
+
+  function changeQty(businessId, product, delta) {
+    setCarts(prev => {
+      const bizCart = { ...(prev[businessId] || {}) };
+      const q = (bizCart[product.id] || 0) + delta;
+      if (q <= 0) delete bizCart[product.id];
+      else bizCart[product.id] = q;
+      const next = { ...prev, [businessId]: bizCart };
+      // persist to localStorage so Menu.jsx sees it
+      localStorage.setItem(`cart_${businessId}`, JSON.stringify(next[businessId]));
+      return next;
+    });
+  }
+
+  const totalCartCount = Object.values(carts).reduce((sum, bizCart) =>
+    sum + Object.values(bizCart).reduce((s, q) => s + q, 0), 0);
+
+  const totalCartPrice = allProducts.reduce((sum, p) => {
+    const q = (carts[p.businessId] || {})[p.id] || 0;
+    return sum + p.price * q;
+  }, 0);
 
   useEffect(() => {
     api.get('/business')
@@ -222,13 +245,13 @@ export default function BusinessList() {
             gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
             gap: '16px',
           }}>
-            {filteredProducts.map(p => (
-              <Link to={`/shops/${p.businessId}/menu`} key={p.id + p.businessId} style={{ textDecoration: 'none' }}>
-                <div style={{
+            {filteredProducts.map(p => {
+              const qty = (carts[p.businessId] || {})[p.id] || 0;
+              return (
+                <div key={p.id + p.businessId} style={{
                   background: '#2A2A2A',
                   borderRadius: '16px',
                   overflow: 'hidden',
-                  cursor: 'pointer',
                   transition: 'transform 0.15s, box-shadow 0.15s',
                 }}
                   onMouseEnter={e => {
@@ -240,29 +263,107 @@ export default function BusinessList() {
                     e.currentTarget.style.boxShadow = '';
                   }}
                 >
-                  <div style={{
-                    height: '180px',
-                    background: '#1C1C1C',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '42px',
-                  }}>
-                    {p.imageUrl ? (
-                      <img src={p.imageUrl} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        onError={e => { e.target.style.display = 'none'; }} />
-                    ) : '🍽️'}
-                  </div>
-                  <div style={{ padding: '14px 16px 16px' }}>
-                    <p style={{ fontWeight: 700, fontSize: '16px', color: '#FFFFFF', marginBottom: '4px' }}>{p.price} ₽</p>
-                    <p style={{ fontSize: '14px', color: '#CCCCCC', lineHeight: 1.3, marginBottom: '4px' }}>{p.name}</p>
-                    <p style={{ fontSize: '12px', color: '#6B6B6B' }}>{p.businessName}</p>
+                  <Link to={`/shops/${p.businessId}/menu`} style={{ textDecoration: 'none' }}>
+                    <div style={{
+                      height: '140px',
+                      background: '#1C1C1C',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '42px',
+                      position: 'relative',
+                    }}>
+                      {p.imageUrl ? (
+                        <img src={p.imageUrl} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          onError={e => { e.target.style.display = 'none'; }} />
+                      ) : '🍽️'}
+                      {qty > 0 && (
+                        <div style={{
+                          position: 'absolute', top: '8px', right: '8px',
+                          background: '#FFD600', color: '#1C1C1C',
+                          borderRadius: '50%', width: '22px', height: '22px',
+                          fontSize: '12px', fontWeight: 700,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>{qty}</div>
+                      )}
+                    </div>
+                    <div style={{ padding: '10px 12px 4px' }}>
+                      <p style={{ fontWeight: 700, fontSize: '15px', color: '#FFFFFF', marginBottom: '2px' }}>{p.price} ₽</p>
+                      <p style={{ fontSize: '13px', color: '#CCCCCC', lineHeight: 1.3, marginBottom: '2px' }}>{p.name}</p>
+                      <p style={{ fontSize: '11px', color: '#6B6B6B' }}>{p.businessName}</p>
+                    </div>
+                  </Link>
+                  {/* Cart controls */}
+                  <div style={{ padding: '8px 12px 12px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+                    {qty > 0 ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <button
+                          onClick={() => changeQty(p.businessId, p, -1)}
+                          style={{
+                            background: '#3A3A3A', border: 'none', borderRadius: '50%',
+                            width: '30px', height: '30px', color: '#FFFFFF', cursor: 'pointer', fontSize: '18px',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}
+                        >−</button>
+                        <span style={{ color: '#FFFFFF', fontWeight: 700, minWidth: '16px', textAlign: 'center', fontSize: '14px' }}>{qty}</span>
+                        <button
+                          onClick={() => changeQty(p.businessId, p, +1)}
+                          style={{
+                            background: '#FFD600', border: 'none', borderRadius: '50%',
+                            width: '30px', height: '30px', color: '#1C1C1C', cursor: 'pointer', fontSize: '18px',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}
+                        >+</button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => changeQty(p.businessId, p, +1)}
+                        style={{
+                          background: '#FFD600', border: 'none', borderRadius: '50%',
+                          width: '30px', height: '30px', color: '#1C1C1C', cursor: 'pointer', fontSize: '20px',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}
+                      >+</button>
+                    )}
                   </div>
                 </div>
-              </Link>
-            ))}
+              );
+            })}
           </div>
         </>
+      )}
+      {/* Floating cart button */}
+      {totalCartCount > 0 && (
+        <div style={{
+          position: 'fixed', bottom: '16px', left: '50%', transform: 'translateX(-50%)',
+          zIndex: 200, width: 'calc(100% - 32px)', maxWidth: '480px',
+        }}>
+          <button
+            onClick={() => {
+              // navigate to the business with the most items in cart
+              const topBiz = Object.entries(carts).sort((a, b) =>
+                Object.values(b[1]).reduce((s, q) => s + q, 0) - Object.values(a[1]).reduce((s, q) => s + q, 0)
+              )[0]?.[0];
+              if (topBiz) navigate(`/shops/${topBiz}/menu`);
+            }}
+            style={{
+              background: '#FFD600', color: '#1C1C1C',
+              border: 'none', borderRadius: '16px',
+              padding: '16px 24px',
+              fontSize: '16px', fontWeight: 700,
+              cursor: 'pointer',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px',
+              width: '100%',
+            }}
+          >
+            <span style={{
+              background: '#1C1C1C', color: '#FFD600',
+              borderRadius: '8px', padding: '2px 8px', fontSize: '14px', fontWeight: 700,
+            }}>{totalCartCount}</span>
+            Перейти в корзину · {totalCartPrice.toFixed(0)} ₽
+          </button>
+        </div>
       )}
     </div>
   );
