@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -54,14 +55,14 @@ fun AuthScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(appScreenBrush())
+            .statusBarsPadding()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         PromoHeroCard(
-            badge = "-400Р",
-            title = "Курьерский кабинет в тёмном маркетплейс-стиле",
-            subtitle = "Войдите в аккаунт и работайте с доставками без лишних переключений и задержек интерфейса.",
+            title = "Кабинет курьера",
+            subtitle = "Войдите в аккаунт и удобно работайте с доставками!",
         )
 
         appState.errorMessage?.let { message ->
@@ -99,15 +100,6 @@ fun AuthScreen(
                 Text(
                     text = if (mode == AuthMode.LOGIN) "Вход для курьера" else "Регистрация курьера",
                     style = MaterialTheme.typography.titleLarge,
-                )
-                Text(
-                    text = if (mode == AuthMode.LOGIN) {
-                        "После входа откроются смена, лента заказов, активная доставка и история."
-                    } else {
-                        "Новый аккаунт будет создан в общей серверной базе данных."
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
 
                 if (mode == AuthMode.REGISTER) {

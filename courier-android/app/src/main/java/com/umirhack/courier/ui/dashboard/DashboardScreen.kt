@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
@@ -60,7 +61,8 @@ fun DashboardScreen(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(appScreenBrush()),
+            .background(appScreenBrush())
+            .statusBarsPadding(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
@@ -68,7 +70,6 @@ fun DashboardScreen(
             ScreenHeader(
                 kicker = "Courier Hub",
                 title = "На линии, $greetingName",
-                subtitle = "В этом блоке всё, что нужно курьеру в течение смены.",
             )
         }
 
@@ -77,7 +78,7 @@ fun DashboardScreen(
                 badge = if (courierState.shiftActive) "Смена ON" else "Смена OFF",
                 title = if (courierState.shiftActive) "Забирайте новые заказы без пауз" else "Запустите смену и выходите на линию",
                 subtitle = if (courierState.shiftActive) {
-                    "Лента заказов уже синхронизирована с сервером и готова к приёму новых доставок."
+                    "Начинайте смену и зарабатывайте на работе вашей мечты!."
                 } else {
                     "После запуска смены приложение откроет доступные заказы и начнёт держать ленту в актуальном состоянии."
                 },

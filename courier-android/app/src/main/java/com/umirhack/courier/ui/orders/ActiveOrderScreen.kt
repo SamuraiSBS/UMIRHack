@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
@@ -58,10 +59,13 @@ fun ActiveOrderScreen(
         onRefreshIfStale()
     }
 
+    val focusOrder = courierState.activeOrder ?: courierState.recentCompletedOrder
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(appScreenBrush()),
+            .background(appScreenBrush())
+            .statusBarsPadding(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
@@ -69,7 +73,6 @@ fun ActiveOrderScreen(
             ScreenHeader(
                 kicker = "Active Route",
                 title = "Мой заказ",
-                subtitle = "Текущий маршрут, клиентский адрес и следующий статус в одном экране.",
             )
         }
 
@@ -79,8 +82,7 @@ fun ActiveOrderScreen(
             }
         }
 
-        val activeOrder = courierState.activeOrder
-        if (activeOrder == null) {
+        if (focusOrder == null) {
             item {
                 EmptyStateCard(
                     title = "Нет активного заказа",
@@ -95,23 +97,30 @@ fun ActiveOrderScreen(
         } else {
             item {
                 PromoHeroCard(
-                    badge = when (activeOrder.status) {
+                    badge = when (focusOrder.status) {
                         "ACCEPTED" -> "Pickup"
                         "DELIVERING" -> "Delivery"
                         else -> "Done"
                     },
-                    title = statusLabel(activeOrder.status),
-                    subtitle = "Переключение статусов идёт напрямую через серверный backend, без локального IP.",
-                    accentColor = when (activeOrder.status) {
+                    title = statusLabel(focusOrder.status),
+                    subtitle = if (focusOrder.status == "DONE") {
+                        "Заказ завершён. Карточка остаётся на экране, чтобы вы сразу видели итог без возврата на главный экран."
+                    } else {
+                        "Следующий статус применяется сразу и отображается без ожидания полного обновления экрана."
+                    },
+                    accentColor = when (focusOrder.status) {
                         "ACCEPTED" -> MaterialTheme.colorScheme.primary
                         "DELIVERING" -> MaterialTheme.colorScheme.tertiary
                         else -> MaterialTheme.colorScheme.secondary
                     },
                 ) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        InfoChip(text = activeOrder.business.name)
-                        activeOrder.deliveryFee?.let { fee ->
+                        InfoChip(text = focusOrder.business.name)
+                        focusOrder.deliveryFee?.let { fee ->
                             InfoChip(text = "+${money(fee)}")
+                        }
+                        if (focusOrder.status == "DONE") {
+                            InfoChip(text = "Завершён")
                         }
                     }
                 }
@@ -119,7 +128,7 @@ fun ActiveOrderScreen(
 
             item {
                 SectionCard(
-                    containerColor = when (activeOrder.status) {
+                    containerColor = when (focusOrder.status) {
                         "ACCEPTED" -> InfoSurface
                         "DELIVERING" -> WarningSurface
                         else -> SuccessSurface
@@ -127,12 +136,12 @@ fun ActiveOrderScreen(
                     borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
                 ) {
                     MerchantBanner(
-                        title = activeOrder.business.name,
-                        subtitle = activeOrder.tradingPoint?.let { "${it.name} • ${it.address}" } ?: "Точка выдачи не указана",
+                        title = focusOrder.business.name,
+                        subtitle = focusOrder.tradingPoint?.let { "${it.name} • ${it.address}" } ?: "Точка выдачи не указана",
                     )
-                    MetricRow(label = "Клиент", value = activeOrder.customer?.name ?: activeOrder.customer?.email.orEmpty())
-                    MetricRow(label = "Адрес доставки", value = activeOrder.address.orEmpty())
-                    activeOrder.deliveryFee?.let { fee ->
+                    MetricRow(label = "Клиент", value = focusOrder.customer?.name ?: focusOrder.customer?.email.orEmpty())
+                    MetricRow(label = "Адрес доставки", value = focusOrder.address.orEmpty())
+                    focusOrder.deliveryFee?.let { fee ->
                         MetricRow(
                             label = "Доход по доставке",
                             value = money(fee),
@@ -141,7 +150,7 @@ fun ActiveOrderScreen(
                     }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
                     Text("Состав заказа", style = MaterialTheme.typography.titleMedium)
-                    activeOrder.items.forEach { item ->
+                    focusOrder.items.forEach { item ->
                         val sum = (item.product.price ?: 0.0) * item.quantity
                         MetricRow(
                             label = "${item.product.name} x${item.quantity}",
@@ -149,8 +158,8 @@ fun ActiveOrderScreen(
                         )
                     }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
-                    MetricRow(label = "Итого", value = money(activeOrder.totalPrice))
-                    nextActionLabel(activeOrder.status)?.let { nextAction ->
+                    MetricRow(label = "Итого", value = money(focusOrder.totalPrice))
+                    nextActionLabel(focusOrder.status)?.let { nextAction ->
                         Button(
                             onClick = onAdvanceOrder,
                             enabled = !courierState.isUpdatingActiveOrder,
@@ -165,7 +174,7 @@ fun ActiveOrderScreen(
                         onClick = onRefresh,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text("Обновить заказ")
+                        Text(if (focusOrder.status == "DONE") "Обновить историю" else "Обновить заказ")
                     }
                 }
             }

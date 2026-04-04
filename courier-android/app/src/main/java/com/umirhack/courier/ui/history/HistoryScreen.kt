@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
@@ -40,7 +41,8 @@ fun HistoryScreen(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(appScreenBrush()),
+            .background(appScreenBrush())
+            .statusBarsPadding(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
@@ -62,22 +64,15 @@ fun HistoryScreen(
             PromoHeroCard(
                 badge = "${courierState.completedOrders.size} заказов",
                 title = "Заработано ${money(totalEarned)}",
-                subtitle = "История загружается без дополнительных задержек при каждом переходе между разделами.",
                 accentColor = MaterialTheme.colorScheme.secondary,
             ) {
-                Text(
-                    text = "Если нужен свежий срез, просто потяните обновление кнопкой на других вкладках.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-        }
+
 
         if (courierState.completedOrders.isEmpty()) {
             item {
                 EmptyStateCard(
                     title = "История пока пустая",
-                    message = "После первой завершённой доставки здесь появятся все выполненные маршруты.",
+                    message = "После первой завершённой доставки здесь появятся все выполненные заказы.",
                 )
             }
         }

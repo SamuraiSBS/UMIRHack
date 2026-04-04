@@ -6,8 +6,11 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -25,6 +28,7 @@ import com.umirhack.courier.ui.components.MetricRow
 import com.umirhack.courier.ui.components.ScreenHeader
 import com.umirhack.courier.ui.components.SectionCard
 import com.umirhack.courier.ui.components.appScreenBrush
+import com.umirhack.courier.ui.theme.SuccessSurface
 import com.umirhack.courier.util.formatOrderCode
 import com.umirhack.courier.util.money
 import kotlinx.coroutines.delay
@@ -36,26 +40,45 @@ private fun etaLabel(distanceKm: Double?): String {
     return "$minMinutes-$maxMinutes мин"
 }
 
+private fun orderActionLabel(
+    orderId: String,
+    activeOrderId: String?,
+    shiftActive: Boolean,
+    acceptingOrderId: String?,
+): String {
+    return when {
+        activeOrderId == orderId -> "В работе"
+        acceptingOrderId == orderId -> "Принимаем..."
+        !shiftActive -> "Смена выключена"
+        else -> "Принять заказ"
+    }
+}
+
 @Composable
 fun AvailableOrdersScreen(
     courierState: CourierUiState,
     onRefresh: () -> Unit,
-    onRefreshIfStale: () -> Unit,
     onAcceptOrder: (String) -> Unit,
     onClearError: () -> Unit,
 ) {
     LaunchedEffect(Unit) {
-        onRefreshIfStale()
+        onRefresh()
         while (true) {
-            delay(6_000)
+            delay(2_500)
             onRefresh()
         }
+    }
+
+    val mergedOrders = buildList {
+        courierState.activeOrder?.let { add(it) }
+        addAll(courierState.availableOrders.filterNot { order -> order.id == courierState.activeOrder?.id })
     }
 
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(appScreenBrush()),
+            .background(appScreenBrush())
+            .statusBarsPadding(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
@@ -67,7 +90,6 @@ fun AvailableOrdersScreen(
                 ScreenHeader(
                     kicker = "Orders Feed",
                     title = "Доступные заказы",
-                    subtitle = "Лента обновляется каждые 6 секунд, но переключение вкладок теперь происходит без медленной анимации.",
                     modifier = Modifier.weight(1f),
                 )
                 OutlinedButton(onClick = onRefresh) {
@@ -85,20 +107,20 @@ fun AvailableOrdersScreen(
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 InfoChip(text = if (courierState.shiftActive) "Смена активна" else "Смена выключена")
-                InfoChip(text = "${courierState.availableOrders.size} заказов")
+                InfoChip(text = "${mergedOrders.size} заказов")
             }
         }
 
-        if (!courierState.shiftActive) {
+        if (!courierState.shiftActive && courierState.activeOrder == null) {
             item {
                 EmptyStateCard(
                     title = "Смена не активна",
-                    message = "Запустите смену на главной вкладке, и здесь сразу откроется серверная лента заказов.",
+                    message = "Экран доступен, но принять новый заказ можно только после запуска смены.",
                 )
             }
         }
 
-        if (courierState.shiftActive && courierState.availableOrders.isEmpty()) {
+        if (mergedOrders.isEmpty()) {
             item {
                 EmptyStateCard(
                     title = "Пока нет доступных заказов",
@@ -107,7 +129,7 @@ fun AvailableOrdersScreen(
             }
         }
 
-        items(courierState.availableOrders, key = { it.id }) { order ->
+        items(mergedOrders, key = { it.id }) { order ->
             val itemCount = order.items.sumOf { it.quantity }
             val composition = buildString {
                 order.items.take(3).forEachIndexed { index, item ->
@@ -125,6 +147,18 @@ fun AvailableOrdersScreen(
             }
 
             SectionCard {
+                if (courierState.activeOrder?.id == order.id) {
+                    AssistChip(
+                        onClick = {},
+                        enabled = false,
+                        label = { Text("Заказ в работе") },
+                        colors = AssistChipDefaults.assistChipColors(
+                            disabledContainerColor = SuccessSurface,
+                            disabledLabelColor = MaterialTheme.colorScheme.onSurface,
+                        ),
+                    )
+                }
+
                 MerchantBanner(
                     title = order.business.name,
                     subtitle = order.tradingPoint?.let { "${it.name} • ${it.address}" } ?: "Точка выдачи уточняется",
@@ -134,6 +168,9 @@ fun AvailableOrdersScreen(
                     InfoChip(text = etaLabel(order.distanceKm))
                     InfoChip(text = "$itemCount поз.")
                     InfoChip(text = formatOrderCode(order.id))
+                    if (courierState.activeOrder?.id == order.id) {
+                        InfoChip(text = "В работе")
+                    }
                 }
 
                 MetricRow(
@@ -161,12 +198,12 @@ fun AvailableOrdersScreen(
 
                 Button(
                     onClick = { onAcceptOrder(order.id) },
-                    enabled = courierState.shiftActive && courierState.acceptingOrderId != order.id,
+                    enabled = courierState.shiftActive &&
+                        courierState.acceptingOrderId != order.id &&
+                        courierState.activeOrder?.id != order.id,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text(
-                        if (courierState.acceptingOrderId == order.id) "Принимаем..." else "Принять заказ"
-                    )
+                    Text(orderActionLabel(order.id, courierState.activeOrder?.id, courierState.shiftActive, courierState.acceptingOrderId))
                 }
             }
         }
