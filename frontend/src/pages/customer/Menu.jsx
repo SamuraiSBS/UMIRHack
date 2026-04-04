@@ -20,20 +20,31 @@ export default function Menu() {
 
   const [business, setBusiness] = useState(null);
   const [products, setProducts] = useState([]);
-  const [cart, setCart] = useState({}); // { productId: quantity }
+  const [cart, setCart] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(`cart_${id}`)) || {}; } catch { return {}; }
+  }); // { productId: quantity }
   const [address, setAddress] = useState('');
+  const [savedAddresses, setSavedAddresses] = useState([]);
+  const [saveAddress, setSaveAddress] = useState(false);
+  const [newAddressLabel, setNewAddressLabel] = useState('');
   const [loading, setLoading] = useState(true);
   const [ordering, setOrdering] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
+    localStorage.setItem(`cart_${id}`, JSON.stringify(cart));
+  }, [cart, id]);
+
+  useEffect(() => {
     Promise.all([
-      api.get('/business').then(r => r.data.find(b => b.id === id)),
+      api.get(`/business/${id}`).then(r => r.data),
       api.get(`/business/${id}/products`).then(r => r.data),
-    ]).then(([biz, prods]) => {
+      api.get('/addresses').then(r => r.data).catch(() => []),
+    ]).then(([biz, prods, addrs]) => {
       setBusiness(biz);
       setProducts(prods);
+      setSavedAddresses(addrs);
     }).finally(() => setLoading(false));
   }, [id]);
 
@@ -62,6 +73,10 @@ export default function Menu() {
     setError('');
     setOrdering(true);
     try {
+      if (saveAddress && newAddressLabel.trim()) {
+        const saved = await api.post('/addresses', { label: newAddressLabel.trim(), address: address.trim() });
+        setSavedAddresses(prev => [...prev, saved.data]);
+      }
       await api.post('/orders', {
         businessId: id,
         address: address.trim(),
@@ -69,6 +84,7 @@ export default function Menu() {
       });
       setSuccess('Заказ оформлен! Переходим к вашим заказам...');
       setCart({});
+      localStorage.removeItem(`cart_${id}`);
       setTimeout(() => navigate('/orders'), 1500);
     } catch (err) {
       setError(err.response?.data?.error || 'Ошибка оформления заказа');
@@ -86,7 +102,18 @@ export default function Menu() {
       </button>
 
       <h1 className="page-title">{business?.name || 'Меню'}</h1>
-      {business?.description && <p className="text-gray text-sm" style={{ marginBottom: '20px' }}>{business.description}</p>}
+      {business?.description && <p className="text-gray text-sm" style={{ marginBottom: '8px' }}>{business.description}</p>}
+      {business?.deliveryZone && (
+        <p className="text-sm text-gray" style={{ marginBottom: '4px' }}>Зона доставки: {business.deliveryZone}</p>
+      )}
+      {business?.tradingPoints?.length > 0 && (
+        <div style={{ marginBottom: '16px' }}>
+          <p className="text-sm" style={{ fontWeight: 600, marginBottom: '4px' }}>Адреса:</p>
+          {business.tradingPoints.map(tp => (
+            <p key={tp.id} className="text-sm text-gray">📍 {tp.name}: {tp.address}</p>
+          ))}
+        </div>
+      )}
 
       {products.length === 0 && <p className="text-gray">Меню пока пусто.</p>}
 
@@ -166,12 +193,41 @@ export default function Menu() {
           <form onSubmit={handleOrder}>
             <div className="form-group">
               <label>Адрес доставки</label>
+              {savedAddresses.length > 0 && (
+                <select
+                  onChange={e => { if (e.target.value) setAddress(e.target.value); }}
+                  style={{ marginBottom: '8px' }}
+                  defaultValue=""
+                >
+                  <option value="">— Выбрать сохранённый адрес —</option>
+                  {savedAddresses.map(a => (
+                    <option key={a.id} value={a.address}>{a.label}: {a.address}</option>
+                  ))}
+                </select>
+              )}
               <input
                 value={address}
                 onChange={e => setAddress(e.target.value)}
                 placeholder="ул. Пушкина, д. 1, кв. 10"
                 required
               />
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px', fontSize: '13px', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={saveAddress}
+                  onChange={e => setSaveAddress(e.target.checked)}
+                  style={{ width: 'auto', margin: 0 }}
+                />
+                Сохранить адрес
+              </label>
+              {saveAddress && (
+                <input
+                  value={newAddressLabel}
+                  onChange={e => setNewAddressLabel(e.target.value)}
+                  placeholder='Название: "Дом", "Работа"...'
+                  style={{ marginTop: '6px' }}
+                />
+              )}
             </div>
             <button type="submit" className="btn-primary w-full" disabled={ordering}>
               {ordering ? 'Оформляем...' : `Заказать на ${total.toFixed(0)} ₽`}

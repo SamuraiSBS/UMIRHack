@@ -5,6 +5,7 @@ import api from '../../api/client';
 export default function BusinessList() {
   const [businesses, setBusinesses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     api.get('/business')
@@ -14,16 +15,38 @@ export default function BusinessList() {
 
   if (loading) return <div className="page"><p>Загрузка...</p></div>;
 
+  const q = search.toLowerCase();
+  const filtered = businesses.filter(b =>
+    b.name.toLowerCase().includes(q) ||
+    (b.description || '').toLowerCase().includes(q) ||
+    (b.deliveryZone || '').toLowerCase().includes(q)
+  );
+
   return (
     <div className="page">
       <h1 className="page-title">Рестораны и магазины</h1>
 
-      {businesses.length === 0 && (
-        <p className="text-gray">Пока нет заведений. Зарегистрируйтесь как бизнес и добавьте своё!</p>
+      <div style={{ position: 'relative', marginBottom: '20px' }}>
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Поиск по названию или зоне доставки..."
+          style={{ paddingRight: search ? '32px' : undefined }}
+        />
+        {search && (
+          <button
+            onClick={() => setSearch('')}
+            style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px', color: '#6b7280' }}
+          >×</button>
+        )}
+      </div>
+
+      {filtered.length === 0 && (
+        <p className="text-gray">{search ? `Ничего не найдено по запросу «${search}»` : 'Пока нет заведений. Зарегистрируйтесь как бизнес и добавьте своё!'}</p>
       )}
 
       <div className="grid grid-2">
-        {businesses.map(b => (
+        {filtered.map(b => (
           <Link to={`/shops/${b.id}/menu`} key={b.id}>
             <div className="card" style={{ cursor: 'pointer', transition: 'box-shadow 0.15s' }}
               onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.12)'}

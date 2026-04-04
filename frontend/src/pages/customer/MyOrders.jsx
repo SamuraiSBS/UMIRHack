@@ -7,6 +7,7 @@ const STATUS_LABELS = {
   DELIVERING: ['badge-delivering', 'В пути'],
   DONE: ['badge-done', 'Доставлен'],
   CANCELLED: ['badge-cancelled', 'Отменён'],
+  REJECTED: ['badge-cancelled', 'Отклонён'],
 };
 
 function StatusBadge({ status }) {
@@ -14,11 +15,15 @@ function StatusBadge({ status }) {
   return <span className={`badge ${cls}`}>{label}</span>;
 }
 
+const ACTIVE_STATUSES = new Set(['CREATED', 'ACCEPTED', 'DELIVERING']);
+const DONE_STATUSES = new Set(['DONE', 'CANCELLED', 'REJECTED']);
+
 export default function MyOrders() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(null);
   const [error, setError] = useState('');
+  const [filter, setFilter] = useState('all'); // 'all' | 'active' | 'done'
 
   function load() {
     return api.get('/orders/my')
@@ -52,20 +57,43 @@ export default function MyOrders() {
 
   if (loading) return <div className="page"><p>Загрузка заказов...</p></div>;
 
+  const filtered = orders.filter(o => {
+    if (filter === 'active') return ACTIVE_STATUSES.has(o.status);
+    if (filter === 'done') return DONE_STATUSES.has(o.status);
+    return true;
+  });
+
+  const activeCount = orders.filter(o => ACTIVE_STATUSES.has(o.status)).length;
+
   return (
     <div className="page">
       <h1 className="page-title">Мои заказы</h1>
 
       {error && <div className="error-msg">{error}</div>}
 
-      {orders.length === 0 && (
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+        {[
+          { key: 'all', label: 'Все' },
+          { key: 'active', label: activeCount ? `Активные (${activeCount})` : 'Активные' },
+          { key: 'done', label: 'Завершённые' },
+        ].map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setFilter(tab.key)}
+            className={filter === tab.key ? 'btn-primary' : 'btn-outline'}
+            style={{ padding: '6px 14px', fontSize: '13px' }}
+          >{tab.label}</button>
+        ))}
+      </div>
+
+      {filtered.length === 0 && (
         <div className="card" style={{ textAlign: 'center', padding: '40px' }}>
-          <p className="text-gray">У вас пока нет заказов.</p>
+          <p className="text-gray">{orders.length === 0 ? 'У вас пока нет заказов.' : 'Нет заказов в этой категории.'}</p>
         </div>
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        {orders.map(order => (
+        {filtered.map(order => (
           <div key={order.id} className="card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px' }}>
               <div>

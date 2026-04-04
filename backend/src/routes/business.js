@@ -149,6 +149,20 @@ router.get('/business/my/products', verifyToken, requireRole('BUSINESS'), async 
   }
 });
 
+// GET /api/business/:id — get business details with trading points (public)
+router.get('/business/:id', async (req, res) => {
+  try {
+    const business = await prisma.business.findFirst({
+      where: { id: req.params.id, isBlocked: false },
+      select: { id: true, name: true, description: true, deliveryZone: true, tradingPoints: { select: { id: true, name: true, address: true } } },
+    });
+    if (!business) return res.status(404).json({ error: 'Business not found' });
+    res.json(business);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch business' });
+  }
+});
+
 // GET /api/business/:id/products — list products for a business (public, available only)
 router.get('/business/:id/products', async (req, res) => {
   try {
