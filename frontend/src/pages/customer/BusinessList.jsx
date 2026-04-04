@@ -37,8 +37,6 @@ const BUSINESS_IMAGES = {
   'Суши Мастер': '/Master.jpg',
 };
 
-const CATEGORIES = ['Все', 'Бургеры', 'Суши', 'Пицца', 'Вок', 'Паста', 'Завтраки'];
-
 function shuffleArray(arr) {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -52,7 +50,6 @@ export default function BusinessList() {
   const [businesses, setBusinesses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [activeCategory, setActiveCategory] = useState('Все');
   const [allProducts, setAllProducts] = useState([]);
 
   useEffect(() => {
@@ -88,6 +85,13 @@ export default function BusinessList() {
     (b.description || '').toLowerCase().includes(q) ||
     (b.deliveryZone || '').toLowerCase().includes(q)
   );
+  const filteredProducts = q
+    ? allProducts.filter(p =>
+        p.name.toLowerCase().includes(q) ||
+        (p.description || '').toLowerCase().includes(q) ||
+        p.businessName.toLowerCase().includes(q)
+      )
+    : allProducts;
 
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: 'clamp(12px, 4vw, 24px) clamp(12px, 4vw, 24px) 80px' }}>
@@ -122,28 +126,6 @@ export default function BusinessList() {
         )}
       </div>
 
-      {/* Category pills */}
-      <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px', marginBottom: '28px', scrollbarWidth: 'none' }}>
-        {CATEGORIES.map(cat => (
-          <button
-            key={cat}
-            onClick={() => setActiveCategory(cat)}
-            style={{
-              background: activeCategory === cat ? '#FFD600' : '#2A2A2A',
-              color: activeCategory === cat ? '#1C1C1C' : '#CCCCCC',
-              border: '1px solid ' + (activeCategory === cat ? '#FFD600' : '#3A3A3A'),
-              borderRadius: '20px',
-              padding: '8px 18px',
-              fontSize: '14px',
-              fontWeight: 600,
-              whiteSpace: 'nowrap',
-              cursor: 'pointer',
-              flexShrink: 0,
-            }}
-          >{cat}</button>
-        ))}
-      </div>
-
       {/* Section title */}
       <h2 style={{ fontSize: '22px', fontWeight: 700, marginBottom: '20px', color: '#FFFFFF' }}>
         Рестораны
@@ -158,7 +140,7 @@ export default function BusinessList() {
       {/* Restaurant grid */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(min(240px, 100%), 1fr))',
         gap: '16px',
       }}>
         {filtered.map(b => {
@@ -230,17 +212,17 @@ export default function BusinessList() {
       </div>
 
       {/* Food items grid */}
-      {allProducts.length > 0 && (
+      {filteredProducts.length > 0 && (
         <>
           <h2 style={{ fontSize: '22px', fontWeight: 700, margin: '36px 0 20px', color: '#FFFFFF' }}>
-            Популярные блюда
+            {q ? 'Найденные блюда' : 'Популярные блюда'}
           </h2>
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(4, 1fr)',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
             gap: '16px',
           }}>
-            {allProducts.map(p => (
+            {filteredProducts.map(p => (
               <Link to={`/shops/${p.businessId}/menu`} key={p.id + p.businessId} style={{ textDecoration: 'none' }}>
                 <div style={{
                   background: '#2A2A2A',
