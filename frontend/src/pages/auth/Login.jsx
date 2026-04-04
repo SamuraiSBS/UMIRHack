@@ -51,8 +51,8 @@ export default function Login() {
           Нет аккаунта? <Link to="/register" style={{ color: '#2563eb' }}>Зарегистрироваться</Link>
         </p>
 
-        <div style={{ marginTop: '16px', padding: '12px', background: '#f3f4f6', borderRadius: '6px', fontSize: '12px', color: '#6b7280' }}>
-          <strong>Demo аккаунты:</strong><br />
+        <div style={{ marginTop: '16px', padding: '12px', background: '#2A2A2A', borderRadius: '6px', fontSize: '12px', color: '#9E9E9E' }}>
+          <strong style={{ color: '#CCCCCC' }}>Demo аккаунты:</strong><br />
           pizza@demo.com / demo123 (бизнес)<br />
           courier@demo.com / demo123 (курьер)<br />
           customer@demo.com / demo123 (покупатель)

@@ -32,17 +32,47 @@ function gradientFor(id) {
   return GRADIENT_COLORS[n % GRADIENT_COLORS.length];
 }
 
+const BUSINESS_IMAGES = {
+  'Пицца Экспресс': '/Pizza.jpg',
+  'Суши Мастер': '/Master.jpg',
+};
+
 const CATEGORIES = ['Все', 'Бургеры', 'Суши', 'Пицца', 'Вок', 'Паста', 'Завтраки'];
+
+function shuffleArray(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
 
 export default function BusinessList() {
   const [businesses, setBusinesses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('Все');
+  const [allProducts, setAllProducts] = useState([]);
 
   useEffect(() => {
     api.get('/business')
-      .then(r => setBusinesses(r.data))
+      .then(r => {
+        setBusinesses(r.data);
+        return r.data;
+      })
+      .then(bizList => {
+        return Promise.all(
+          bizList.map(b =>
+            api.get(`/business/${b.id}/products`)
+              .then(r => r.data.map(p => ({ ...p, businessName: b.name, businessId: b.id })))
+              .catch(() => [])
+          )
+        );
+      })
+      .then(results => {
+        setAllProducts(shuffleArray(results.flat()));
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -136,6 +166,7 @@ export default function BusinessList() {
           const rating = fakeRating(b.id);
           const reviews = fakeReviews(b.id);
           const delivery = fakeDelivery(b.id);
+          const customImage = BUSINESS_IMAGES[b.name];
 
           return (
             <Link to={`/shops/${b.id}/menu`} key={b.id}>
@@ -158,14 +189,17 @@ export default function BusinessList() {
                 {/* Image / gradient area */}
                 <div style={{
                   height: '160px',
-                  background: `linear-gradient(135deg, ${c1}, ${c2})`,
+                  background: customImage ? '#1C1C1C' : `linear-gradient(135deg, ${c1}, ${c2})`,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   fontSize: '56px',
                   position: 'relative',
+                  overflow: 'hidden',
                 }}>
-                  🍽️
+                  {customImage ? (
+                    <img src={customImage} alt={b.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : '🍽️'}
                   {/* Heart icon */}
                   <div style={{
                     position: 'absolute', top: '10px', right: '10px',
@@ -194,6 +228,60 @@ export default function BusinessList() {
           );
         })}
       </div>
+
+      {/* Food items grid */}
+      {allProducts.length > 0 && (
+        <>
+          <h2 style={{ fontSize: '22px', fontWeight: 700, margin: '36px 0 20px', color: '#FFFFFF' }}>
+            Популярные блюда
+          </h2>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(4, 1fr)',
+            gap: '16px',
+          }}>
+            {allProducts.map(p => (
+              <Link to={`/shops/${p.businessId}/menu`} key={p.id + p.businessId} style={{ textDecoration: 'none' }}>
+                <div style={{
+                  background: '#2A2A2A',
+                  borderRadius: '16px',
+                  overflow: 'hidden',
+                  cursor: 'pointer',
+                  transition: 'transform 0.15s, box-shadow 0.15s',
+                }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.transform = 'translateY(-3px)';
+                    e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.5)';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.transform = '';
+                    e.currentTarget.style.boxShadow = '';
+                  }}
+                >
+                  <div style={{
+                    height: '180px',
+                    background: '#1C1C1C',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '42px',
+                  }}>
+                    {p.imageUrl ? (
+                      <img src={p.imageUrl} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        onError={e => { e.target.style.display = 'none'; }} />
+                    ) : '🍽️'}
+                  </div>
+                  <div style={{ padding: '14px 16px 16px' }}>
+                    <p style={{ fontWeight: 700, fontSize: '16px', color: '#FFFFFF', marginBottom: '4px' }}>{p.price} ₽</p>
+                    <p style={{ fontSize: '14px', color: '#CCCCCC', lineHeight: 1.3, marginBottom: '4px' }}>{p.name}</p>
+                    <p style={{ fontSize: '12px', color: '#6B6B6B' }}>{p.businessName}</p>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

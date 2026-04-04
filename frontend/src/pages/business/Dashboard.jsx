@@ -127,12 +127,12 @@ export default function Dashboard() {
       {/* Stats row — clickable filters */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '10px', marginBottom: '24px' }}>
         {[
-          { label: 'Все', count: orders.length, color: '#f9fafb', status: 'ALL' },
-          { label: 'Новые', count: counts.CREATED, color: '#dbeafe', status: 'CREATED' },
-          { label: 'Приняты', count: counts.ACCEPTED, color: '#fef3c7', status: 'ACCEPTED' },
-          { label: 'В доставке', count: counts.DELIVERING, color: '#d1fae5', status: 'DELIVERING' },
-          { label: 'Выполнены', count: counts.DONE, color: '#f3f4f6', status: 'DONE' },
-          { label: 'Отклонены', count: counts.REJECTED, color: '#fee2e2', status: 'REJECTED' },
+          { label: 'Все', count: orders.length, color: '#1f2937', status: 'ALL' },
+          { label: 'Новые', count: counts.CREATED, color: '#1e3a5f', status: 'CREATED' },
+          { label: 'Приняты', count: counts.ACCEPTED, color: '#3b2800', status: 'ACCEPTED' },
+          { label: 'В доставке', count: counts.DELIVERING, color: '#052e16', status: 'DELIVERING' },
+          { label: 'Выполнены', count: counts.DONE, color: '#1f2937', status: 'DONE' },
+          { label: 'Отклонены', count: counts.REJECTED, color: '#3b0a0a', status: 'REJECTED' },
         ].map(({ label, count, color, status }) => (
           <div
             key={label}
@@ -147,8 +147,8 @@ export default function Dashboard() {
               transition: 'outline 0.1s',
             }}
           >
-            <p style={{ fontSize: '28px', fontWeight: 700 }}>{count}</p>
-            <p style={{ fontSize: '12px', color: '#374151' }}>{label}</p>
+            <p style={{ fontSize: '28px', fontWeight: 700, color: '#FFFFFF' }}>{count}</p>
+            <p style={{ fontSize: '12px', color: '#9E9E9E' }}>{label}</p>
           </div>
         ))}
       </div>
