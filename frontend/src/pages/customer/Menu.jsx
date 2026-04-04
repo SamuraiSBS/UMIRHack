@@ -140,6 +140,7 @@ function ProductModal({ product, qty, onClose, onAdd, onChangeQty }) {
 export default function Menu() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [city, setCity] = useState(() => getCityConfig(localStorage.getItem('delivery_city') || '').value);
 
   const [business, setBusiness] = useState(null);
   const [products, setProducts] = useState([]);
@@ -176,6 +177,10 @@ export default function Menu() {
   useEffect(() => {
     localStorage.setItem(`cart_${id}`, JSON.stringify(cart));
   }, [cart, id]);
+
+  useEffect(() => {
+    localStorage.setItem('delivery_city', city);
+  }, [city]);
 
   useEffect(() => {
     let isMounted = true;
@@ -567,6 +572,15 @@ export default function Menu() {
 
             <form onSubmit={handleOrder}>
               <div className="form-group">
+                <label>Город</label>
+                <select value={city} onChange={e => setCity(e.target.value)}>
+                  {CITY_OPTIONS.map((item) => (
+                    <option key={item.value} value={item.value}>{item.value}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
                 <label>Адрес доставки</label>
                 <input
                   value={address}
@@ -574,6 +588,29 @@ export default function Menu() {
                   placeholder="ул. Пушкина, д. 1, кв. 10"
                   required
                 />
+              </div>
+
+              <div className="form-group">
+                <label>Точка на карте</label>
+                <div style={{ marginBottom: '10px' }}>
+                  <LeafletMap
+                    center={deliveryPoint ? [deliveryPoint.lat, deliveryPoint.lng] : cityConfig.center}
+                    zoom={deliveryPoint ? 14 : cityConfig.zoom}
+                    onMapClick={handleMapClick}
+                    destination={deliveryPoint}
+                    route={routeMeta?.coordinates}
+                    height={260}
+                  />
+                </div>
+                <p style={{ fontSize: '13px', color: '#9E9E9E' }}>
+                  Нажмите на карту, чтобы указать точку доставки.
+                  {resolvingPoint ? ' Определяем адрес...' : ''}
+                </p>
+                {routeMeta && (
+                  <p style={{ fontSize: '13px', color: '#9E9E9E', marginTop: '6px' }}>
+                    Примерное время в пути: {Math.round(routeMeta.durationMin)} мин
+                  </p>
+                )}
               </div>
 
               {tradingPoints.length > 0 && (
