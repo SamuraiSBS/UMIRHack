@@ -56,6 +56,7 @@ export default function BusinessSettings() {
 
   async function syncPointFromMap(setter, setResolving, point) {
     setResolving(true);
+    setError('');
     setter((prev) => ({ ...prev, lat: point.lat, lng: point.lng }));
     try {
       const result = await reverseGeocode(point.lat, point.lng);
@@ -73,6 +74,7 @@ export default function BusinessSettings() {
         lat: point.lat,
         lng: point.lng,
       }));
+      setError('Не удалось определить адрес автоматически. Точка на карте сохранена, адрес можно поправить вручную.');
     } finally {
       setResolving(false);
     }

@@ -1,6 +1,25 @@
 import { getCityConfig } from './cities';
 
 let leafletPromise;
+const reverseGeocodeCache = new Map();
+const geocodeCache = new Map();
+
+function roundCoordinate(value) {
+  return Number(value).toFixed(5);
+}
+
+function readGeoPayload(data) {
+  if (!data || typeof data !== 'object') {
+    throw new Error('Invalid geocoder response');
+  }
+
+  const serviceError = data.error || data.message;
+  if (serviceError) {
+    throw new Error(String(serviceError));
+  }
+
+  return data;
+}
 
 function appendStylesheet(href) {
   if (document.querySelector(`link[href="${href}"]`)) return;
@@ -30,6 +49,11 @@ export function loadLeaflet() {
 }
 
 export async function reverseGeocode(lat, lng) {
+  const cacheKey = `${roundCoordinate(lat)}:${roundCoordinate(lng)}`;
+  if (reverseGeocodeCache.has(cacheKey)) {
+    return reverseGeocodeCache.get(cacheKey);
+  }
+
   const response = await fetch(
     `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&accept-language=ru`,
     {
@@ -39,11 +63,18 @@ export async function reverseGeocode(lat, lng) {
     }
   );
   if (!response.ok) throw new Error('Failed to reverse geocode point');
-  return response.json();
+  const data = readGeoPayload(await response.json());
+  reverseGeocodeCache.set(cacheKey, data);
+  return data;
 }
 
 export async function geocodeAddress(query, city) {
   const cityConfig = getCityConfig(city);
+  const cacheKey = `${cityConfig.value}:${query}`.trim().toLowerCase();
+  if (geocodeCache.has(cacheKey)) {
+    return geocodeCache.get(cacheKey);
+  }
+
   const response = await fetch(
     `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=ru&q=${encodeURIComponent(`${query}, ${cityConfig.value}`)}`,
     {
@@ -54,13 +85,22 @@ export async function geocodeAddress(query, city) {
   );
   if (!response.ok) throw new Error('Failed to geocode address');
   const results = await response.json();
+  if (results?.error || results?.message) {
+    throw new Error(String(results.error || results.message));
+  }
   const item = results[0];
-  if (!item) return null;
-  return {
+  if (!item) {
+    geocodeCache.set(cacheKey, null);
+    return null;
+  }
+
+  const resolved = {
     lat: Number(item.lat),
     lng: Number(item.lon),
     label: item.display_name,
   };
+  geocodeCache.set(cacheKey, resolved);
+  return resolved;
 }
 
 export async function fetchRoute(start, end) {
