@@ -133,6 +133,7 @@ fun AvailableOrdersScreen(
             val orderItems = order.items.orEmpty()
             val merchantName = order.business?.name ?: "Магазин не указан"
             val itemCount = orderItems.sumOf { it.quantity }
+            val isAcceptedOrder = courierState.activeOrder?.id == order.id
             val composition = buildString {
                 orderItems.take(3).forEachIndexed { index, item ->
                     append(item.product.name ?: "Товар")
@@ -149,7 +150,7 @@ fun AvailableOrdersScreen(
             }
 
             SectionCard {
-                if (courierState.activeOrder?.id == order.id) {
+                if (isAcceptedOrder) {
                     AssistChip(
                         onClick = {},
                         enabled = false,
@@ -168,9 +169,9 @@ fun AvailableOrdersScreen(
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     InfoChip(text = etaLabel(order.distanceKm))
-                    InfoChip(text = "$itemCount поз.")
-                    InfoChip(text = formatOrderCode(order.id))
-                    if (courierState.activeOrder?.id == order.id) {
+                    if (isAcceptedOrder) {
+                        InfoChip(text = "$itemCount поз.")
+                        InfoChip(text = formatOrderCode(order.id))
                         InfoChip(text = "В работе")
                     }
                 }
@@ -181,28 +182,30 @@ fun AvailableOrdersScreen(
                     valueColor = MaterialTheme.colorScheme.secondary,
                 )
                 MetricRow(label = "Чек клиента", value = money(order.totalPrice))
-
-                Text(
-                    text = "Куда везти: ${order.address.orEmpty()}",
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
                 order.distanceKm?.let { distance ->
                     Text(
                         text = "Маршрут: $distance км",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                Text(
-                    text = composition,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall,
-                )
+
+                if (isAcceptedOrder) {
+                    Text(
+                        text = "Куда везти: ${order.address.orEmpty()}",
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = composition,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
 
                 Button(
                     onClick = { onAcceptOrder(order.id) },
                     enabled = courierState.shiftActive &&
                         courierState.acceptingOrderId != order.id &&
-                        courierState.activeOrder?.id != order.id,
+                        !isAcceptedOrder,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(orderActionLabel(order.id, courierState.activeOrder?.id, courierState.shiftActive, courierState.acceptingOrderId))

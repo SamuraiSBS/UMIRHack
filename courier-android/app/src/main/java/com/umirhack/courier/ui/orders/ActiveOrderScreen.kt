@@ -212,6 +212,14 @@ fun ActiveOrderScreen(
                             )
                         }
                     }
+                    if (focusOrder.status == "DONE") {
+                        Button(
+                            onClick = onOpenOrders,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("Перейти к доступным заказам")
+                        }
+                    }
                     OutlinedButton(
                         onClick = onRefresh,
                         modifier = Modifier.fillMaxWidth(),

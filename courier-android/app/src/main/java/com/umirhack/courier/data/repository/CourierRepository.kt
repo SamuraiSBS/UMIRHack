@@ -1,6 +1,7 @@
 package com.umirhack.courier.data.repository
 
 import com.google.gson.Gson
+import com.umirhack.courier.BuildConfig
 import com.umirhack.courier.data.local.SessionStorage
 import com.umirhack.courier.data.remote.ApiProvider
 import com.umirhack.courier.data.remote.AuthResponseDto
@@ -68,7 +69,14 @@ class CourierRepository(
         return when (error) {
             is HttpException -> error.response()?.errorBody().parseErrorMessage()
                 ?: "Ошибка сервера (${error.code()})"
-            is IOException -> "Не удалось подключиться к серверу. Проверьте сеть и доступность backend."
+            is IOException -> {
+                val reason = error.localizedMessage?.takeIf { it.isNotBlank() }
+                buildString {
+                    append("Не удалось подключиться к серверу ")
+                    append(BuildConfig.DEFAULT_API_BASE_URL)
+                    reason?.let { append(". Причина: $it") }
+                }
+            }
             else -> error.message ?: "Произошла неизвестная ошибка"
         }
     }
