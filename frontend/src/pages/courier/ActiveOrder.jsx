@@ -101,12 +101,12 @@ function pointsEqual(first, second) {
 function buildRouteUrl(from, to, fallbackAddress) {
   if (to) {
     if (from) {
-      return `https://yandex.ru/maps/?rtext=${from.lat},${from.lng}~${to.lat},${to.lng}&rtt=auto`;
+      return `https://www.google.com/maps/dir/?api=1&origin=${from.lat},${from.lng}&destination=${to.lat},${to.lng}&travelmode=driving`;
     }
-    return `https://yandex.ru/maps/?ll=${to.lng},${to.lat}&z=16`;
+    return `https://www.google.com/maps/search/?api=1&query=${to.lat},${to.lng}`;
   }
   if (fallbackAddress) {
-    return `https://yandex.ru/maps/?text=${encodeURIComponent(fallbackAddress)}`;
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fallbackAddress)}`;
   }
   return null;
 }
