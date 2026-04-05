@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ФЛАГМАН — Агрегатор доставки</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --yellow: #ffd600;
+    --dark: #1c1c1c;
+    --dark2: #242424;
+    --dark3: #2e2e2e;
+    --text: #f0f0f0;
+  }
+
+  body {
+    background: var(--dark);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  /* QR fixed top-left */
+  .qr-fixed {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 100;
+    width: 72px;
+    height: 72px;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 2px solid var(--yellow);
+    opacity: 0.85;
+  }
+  .qr-fixed img { width: 100%; height: 100%; object-fit: cover; }
+
+  /* Slide counter */
+  .counter {
+    position: fixed;
+    bottom: 20px;
+    right: 28px;
+    font-size: 13px;
+    color: #555;
+    z-index: 100;
+    letter-spacing: 1px;
+  }
+
+  /* Nav arrows */
+  .nav-btn {
+    position: fixed;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 100;
+    background: rgba(255,214,0,0.12);
+    border: 1.5px solid rgba(255,214,0,0.3);
+    color: var(--yellow);
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+    user-select: none;
+  }
+  .nav-btn:hover { background: rgba(255,214,0,0.28); }
+  .nav-prev { left: 12px; }
+  .nav-next { right: 12px; }
+
+  /* Progress bar */
+  .progress {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background: var(--yellow);
+    transition: width 0.4s ease;
+    z-index: 100;
+  }
+
+  /* Slides container */
+  .slides {
+    width: 100%;
+    height: 100vh;
+    position: relative;
+  }
+
+  .slide {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transform: translateX(60px);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+    pointer-events: none;
+    padding: 20px 70px 20px 110px;
+  }
+  .slide.active {
+    opacity: 1;
+    transform: translateX(0);
+    pointer-events: all;
+  }
+  .slide.out {
+    opacity: 0;
+    transform: translateX(-60px);
+  }
+
+  /* ===== SLIDE 1 — TITLE ===== */
+  .s1 {
+    background: var(--dark);
+    flex-direction: column;
+    text-align: center;
+    gap: 0;
+  }
+  .s1 .logo-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    margin-bottom: 16px;
+  }
+  .s1 .courier-logo {
+    width: 110px;
+    height: 110px;
+    border-radius: 24px;
+    object-fit: cover;
+  }
+  .s1 h1 {
+    font-size: clamp(72px, 10vw, 120px);
+    font-weight: 900;
+    color: var(--yellow);
+    letter-spacing: -2px;
+    line-height: 1;
+    text-transform: uppercase;
+  }
+  .s1 .sub {
+    font-size: clamp(18px, 2.5vw, 28px);
+    color: #aaa;
+    margin-top: 10px;
+    font-weight: 300;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+  }
+  .s1 .team-badge {
+    margin-top: 32px;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255,214,0,0.1);
+    border: 1.5px solid var(--yellow);
+    padding: 10px 28px;
+    border-radius: 40px;
+    font-size: 16px;
+    color: var(--yellow);
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  .s1 .hackathon-tag {
+    margin-top: 14px;
+    font-size: 13px;
+    color: #555;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  /* ===== SLIDE 2 — CONCEPT ===== */
+  .s2 { flex-direction: column; gap: 32px; }
+  .slide-title {
+    font-size: clamp(28px, 4vw, 48px);
+    font-weight: 800;
+    color: var(--yellow);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    align-self: flex-start;
+    margin-left: 0;
+  }
+  .slide-title span { color: var(--text); }
+  .roles-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    width: 100%;
+  }
+  .role-card {
+    background: var(--dark2);
+    border: 1.5px solid var(--dark3);
+    border-radius: 18px;
+    padding: 28px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    text-align: center;
+    transition: border-color 0.2s;
+  }
+  .role-card:hover { border-color: var(--yellow); }
+  .role-icon {
+    font-size: 48px;
+    line-height: 1;
+  }
+  .role-name {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--yellow);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .role-desc {
+    font-size: 13px;
+    color: #888;
+    line-height: 1.5;
+  }
+
+  /* ===== SLIDE 3 — STACK ===== */
+  .s3 { flex-direction: column; gap: 36px; }
+  .stack-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    width: 100%;
+  }
+  .stack-cat {
+    background: var(--dark2);
+    border: 1.5px solid var(--dark3);
+    border-radius: 18px;
+    padding: 22px 26px;
+  }
+  .stack-cat-title {
+    font-size: 12px;
+    color: var(--yellow);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-weight: 700;
+    margin-bottom: 14px;
+  }
+  .badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .badge {
+    background: var(--dark3);
+    border: 1px solid #3a3a3a;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .badge.y { color: var(--yellow); border-color: rgba(255,214,0,0.3); }
+
+  /* ===== SLIDES 4,5,6 — SCREENSHOTS ===== */
+  .s-screens { flex-direction: column; gap: 24px; }
+  .screens-row {
+    display: flex;
+    gap: 14px;
+    width: 100%;
+    flex: 1;
+    align-items: center;
+  }
+  .screen-frame {
+    flex: 1;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1.5px solid #333;
+    position: relative;
+    background: var(--dark2);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    transition: transform 0.2s, border-color 0.2s;
+  }
+  .screen-frame:hover {
+    transform: translateY(-4px);
+    border-color: var(--yellow);
+  }
+  .screen-frame img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .screen-label {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(transparent, rgba(0,0,0,0.85));
+    padding: 24px 12px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--yellow);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  /* Mobile screens (taller) */
+  .mobile-screens .screen-frame {
+    max-width: 220px;
+    height: 380px;
+  }
+  .mobile-screens {
+    justify-content: center;
+  }
+  .mobile-screens .screen-frame img {
+    object-fit: contain;
+    background: #111;
+  }
+
+  /* ===== SLIDE 7 — FINAL QR ===== */
+  .s7 { flex-direction: column; gap: 32px; text-align: center; }
+  .qr-final-row {
+    display: flex;
+    gap: 60px;
+    align-items: center;
+    justify-content: center;
+  }
+  .qr-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+  .qr-img-wrap {
+    width: 220px;
+    height: 220px;
+    border-radius: 20px;
+    overflow: hidden;
+    border: 3px solid var(--yellow);
+    padding: 8px;
+    background: var(--yellow);
+  }
+  .qr-img-wrap img { width: 100%; height: 100%; object-fit: contain; border-radius: 12px; }
+  .qr-label {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+  .qr-sub {
+    font-size: 12px;
+    color: #666;
+    letter-spacing: 1px;
+  }
+  .qr-divider {
+    width: 1px;
+    height: 200px;
+    background: linear-gradient(transparent, #ffd600, transparent);
+    opacity: 0.4;
+  }
+  .final-title {
+    font-size: clamp(36px, 5vw, 64px);
+    font-weight: 900;
+    color: var(--yellow);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+  .final-sub {
+    font-size: 15px;
+    color: #666;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+
+  /* dot indicators */
+  .dots {
+    position: fixed;
+    bottom: 36px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    z-index: 100;
+  }
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #444;
+    transition: background 0.3s, transform 0.3s;
+    cursor: pointer;
+  }
+  .dot.active {
+    background: var(--yellow);
+    transform: scale(1.4);
+  }
+
+  /* yellow accent line */
+  .accent-line {
+    width: 60px;
+    height: 4px;
+    background: var(--yellow);
+    border-radius: 2px;
+    margin-bottom: 8px;
+  }
+
+  /* feature chips on concept slide */
+  .features-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    width: 100%;
+  }
+  .feat-chip {
+    background: rgba(255,214,0,0.08);
+    border: 1px solid rgba(255,214,0,0.25);
+    padding: 8px 18px;
+    border-radius: 30px;
+    font-size: 14px;
+    color: #ccc;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .feat-chip span { color: var(--yellow); font-size: 16px; }
+
+  .big-stat {
+    font-size: clamp(48px, 6vw, 80px);
+    font-weight: 900;
+    color: var(--yellow);
+    line-height: 1;
+  }
+  .stat-label {
+    font-size: 13px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+  .stats-row {
+    display: flex;
+    gap: 48px;
+    justify-content: center;
+    width: 100%;
+  }
+  .stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+</style>
+</head>
+<body>
+
+<!-- QR fixed -->
+<div class="qr-fixed"><img src="qr-code.png" alt="QR"></div>
+
+<!-- Nav -->
+<button class="nav-btn nav-prev" onclick="changeSlide(-1)">&#8592;</button>
+<button class="nav-btn nav-next" onclick="changeSlide(1)">&#8594;</button>
+
+<!-- Progress -->
+<div class="progress" id="progress"></div>
+
+<!-- Dots -->
+<div class="dots" id="dots"></div>
+
+<!-- Counter -->
+<div class="counter" id="counter">1 / 7</div>
+
+<div class="slides" id="slides">
+
+  <!-- SLIDE 1: TITLE -->
+  <div class="slide s1 active" data-index="0">
+    <div class="logo-wrap">
+      <img class="courier-logo" src="Логокурьера.jpg" alt="Флагман логотип">
+      <h1>Флагман</h1>
+    </div>
+    <p class="sub">Агрегатор доставки</p>
+    <div class="team-badge">⚡ Команда SamuraiSBS</div>
+    <p class="hackathon-tag">UMIR Hackathon · 2026</p>
+  </div>
+
+  <!-- SLIDE 2: CONCEPT / ROLES -->
+  <div class="slide s2" data-index="1">
+    <div class="accent-line"></div>
+    <div class="slide-title">4 роли.<span> Один продукт.</span></div>
+    <div class="roles-grid">
+      <div class="role-card">
+        <div class="role-icon">🛒</div>
+        <div class="role-name">Покупатель</div>
+        <div class="role-desc">Выбирает рестораны, оформляет заказ с доставкой на карте</div>
+      </div>
+      <div class="role-card">
+        <div class="role-icon">🏪</div>
+        <div class="role-name">Бизнес</div>
+        <div class="role-desc">Управляет меню, заказами и аналитикой выручки</div>
+      </div>
+      <div class="role-card">
+        <div class="role-icon">🛵</div>
+        <div class="role-name">Курьер</div>
+        <div class="role-desc">Мобильное приложение: смены, заказы, навигация</div>
+      </div>
+      <div class="role-card">
+        <div class="role-icon">⚙️</div>
+        <div class="role-name">Админ</div>
+        <div class="role-desc">Полный контроль: пользователи, бизнесы, статистика</div>
+      </div>
+    </div>
+    <div class="features-row">
+      <div class="feat-chip"><span>🗺️</span> Карта с адресом</div>
+      <div class="feat-chip"><span>⚡</span> Real-time статусы</div>
+      <div class="feat-chip"><span>🔒</span> JWT-авторизация</div>
+      <div class="feat-chip"><span>📦</span> Атомарный захват заказа</div>
+      <div class="feat-chip"><span>📊</span> Аналитика выручки</div>
+      <div class="feat-chip"><span>📱</span> Мобильное приложение курьера</div>
+    </div>
+  </div>
+
+  <!-- SLIDE 3: STACK -->
+  <div class="slide s3" data-index="2">
+    <div class="accent-line"></div>
+    <div class="slide-title">Стек</div>
+    <div class="stack-grid">
+      <div class="stack-cat">
+        <div class="stack-cat-title">Frontend</div>
+        <div class="badges">
+          <div class="badge y">React 18</div>
+          <div class="badge y">React Router v6</div>
+          <div class="badge">Vite</div>
+          <div class="badge">Axios</div>
+          <div class="badge">Leaflet</div>
+          <div class="badge">CSS Modules</div>
+        </div>
+      </div>
+      <div class="stack-cat">
+        <div class="stack-cat-title">Backend</div>
+        <div class="badges">
+          <div class="badge y">Node.js</div>
+          <div class="badge y">Express</div>
+          <div class="badge">Prisma ORM</div>
+          <div class="badge">JWT</div>
+          <div class="badge">REST API</div>
+        </div>
+      </div>
+      <div class="stack-cat">
+        <div class="stack-cat-title">База данных и инфра</div>
+        <div class="badges">
+          <div class="badge y">PostgreSQL</div>
+          <div class="badge">Docker</div>
+          <div class="badge">Docker Compose</div>
+        </div>
+      </div>
+      <div class="stack-cat">
+        <div class="stack-cat-title">Мобильное приложение</div>
+        <div class="badges">
+          <div class="badge y">React Native</div>
+          <div class="badge">Expo</div>
+          <div class="badge">Google Maps API</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 4: CUSTOMER -->
+  <div class="slide s-screens" data-index="3">
+    <div class="accent-line"></div>
+    <div class="slide-title">Покупатель</div>
+    <div class="screens-row" style="height: 65vh;">
+      <div class="screen-frame">
+        <img src="покупатель/главноеменю.jpg" alt="Главное меню">
+        <div class="screen-label">Каталог ресторанов</div>
+      </div>
+      <div class="screen-frame">
+        <img src="покупатель/ресторан.jpg" alt="Ресторан">
+        <div class="screen-label">Меню ресторана</div>
+      </div>
+      <div class="screen-frame">
+        <img src="покупатель/корзина.jpg" alt="Корзина">
+        <div class="screen-label">Корзина + карта доставки</div>
+      </div>
+      <div class="screen-frame">
+        <img src="покупатель/моизаказы.jpg" alt="Заказы">
+        <div class="screen-label">Мои заказы</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 5: BUSINESS -->
+  <div class="slide s-screens" data-index="4">
+    <div class="accent-line"></div>
+    <div class="slide-title">Бизнес</div>
+    <div class="screens-row" style="height: 65vh;">
+      <div class="screen-frame">
+        <img src="бизнес/главная.jpg" alt="Дашборд">
+        <div class="screen-label">Управление заказами</div>
+      </div>
+      <div class="screen-frame">
+        <img src="бизнес/аналитика.jpg" alt="Аналитика">
+        <div class="screen-label">Аналитика выручки</div>
+      </div>
+      <div class="screen-frame">
+        <img src="бизнес/меню.jpg" alt="Меню">
+        <div class="screen-label">Меню и продукты</div>
+      </div>
+      <div class="screen-frame">
+        <img src="бизнес/настройказаведения.jpg" alt="Настройки">
+        <div class="screen-label">Торговые точки на карте</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 6: COURIER APP -->
+  <div class="slide s-screens" data-index="5">
+    <div class="accent-line"></div>
+    <div class="slide-title">Курьер — <span style="color:#888; font-weight:400; font-size:0.6em; text-transform:none; letter-spacing:0">мобильное приложение</span></div>
+    <div class="screens-row mobile-screens" style="height: 60vh;">
+      <div class="screen-frame">
+        <img src="курьер/Панель.jpg" alt="Панель">
+        <div class="screen-label">Смена</div>
+      </div>
+      <div class="screen-frame">
+        <img src="курьер/моизаказы.jpg" alt="Заказы">
+        <div class="screen-label">Доступные заказы</div>
+      </div>
+      <div class="screen-frame">
+        <img src="курьер/впутикклиенту.jpg" alt="Активный">
+        <div class="screen-label">Активный заказ</div>
+      </div>
+      <div class="screen-frame">
+        <img src="курьер/карта.jpg" alt="Карта">
+        <div class="screen-label">Навигация</div>
+      </div>
+      <div class="screen-frame">
+        <img src="курьер/история.jpg" alt="История">
+        <div class="screen-label">История доставок</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 7: FINAL QR -->
+  <div class="slide s7" data-index="6">
+    <div class="final-title">Флагман</div>
+    <div class="final-sub">Попробуй прямо сейчас</div>
+    <div class="qr-final-row">
+      <div class="qr-item">
+        <div class="qr-img-wrap"><img src="qr-code.png" alt="Сайт QR"></div>
+        <div class="qr-label">Веб-сайт</div>
+        <div class="qr-sub">Для покупателей и бизнеса</div>
+      </div>
+      <div class="qr-divider"></div>
+      <div class="qr-item">
+        <div class="qr-img-wrap"><img src="qr-code.png" alt="APK QR"></div>
+        <div class="qr-label">Приложение</div>
+        <div class="qr-sub">APK для Android · Курьеры</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const totalSlides = 7;
+  let current = 0;
+  let animating = false;
+
+  const slidesEl = document.querySelectorAll('.slide');
+  const progressEl = document.getElementById('progress');
+  const counterEl = document.getElementById('counter');
+  const dotsEl = document.getElementById('dots');
+
+  // Create dots
+  for (let i = 0; i < totalSlides; i++) {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i === 0 ? ' active' : '');
+    d.onclick = () => goTo(i);
+    dotsEl.appendChild(d);
+  }
+
+  function updateUI() {
+    counterEl.textContent = `${current + 1} / ${totalSlides}`;
+    progressEl.style.width = `${((current + 1) / totalSlides) * 100}%`;
+    document.querySelectorAll('.dot').forEach((d, i) => {
+      d.classList.toggle('active', i === current);
+    });
+  }
+
+  function goTo(index) {
+    if (animating || index === current || index < 0 || index >= totalSlides) return;
+    animating = true;
+    const prev = current;
+    current = index;
+
+    const dir = index > prev ? 1 : -1;
+
+    slidesEl[prev].classList.remove('active');
+    slidesEl[prev].classList.add('out');
+    slidesEl[prev].style.transform = `translateX(${dir * -60}px)`;
+
+    slidesEl[current].style.transform = `translateX(${dir * 60}px)`;
+    slidesEl[current].style.opacity = '0';
+    slidesEl[current].classList.add('active');
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        slidesEl[current].style.transform = 'translateX(0)';
+        slidesEl[current].style.opacity = '1';
+        slidesEl[current].style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+      });
+    });
+
+    setTimeout(() => {
+      slidesEl[prev].classList.remove('out');
+      slidesEl[prev].style.transform = '';
+      slidesEl[prev].style.opacity = '';
+      slidesEl[prev].style.transition = '';
+      slidesEl[current].style.transition = '';
+      animating = false;
+    }, 420);
+
+    updateUI();
+  }
+
+  function changeSlide(dir) {
+    goTo(current + dir);
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
+      e.preventDefault();
+      changeSlide(1);
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      changeSlide(-1);
+    }
+  });
+
+  // Touch swipe
+  let touchStartX = 0;
+  document.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; });
+  document.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    if (Math.abs(dx) > 50) changeSlide(dx < 0 ? 1 : -1);
+  });
+
+  updateUI();
+</script>
+</body>
+</html>
