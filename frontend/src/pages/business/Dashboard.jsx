@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../api/client';
+import { asArray, asNumber, formatCurrency, formatDate, shortId } from '../../lib/safeData';
 
 const STATUS_LABELS = {
   CREATED: ['badge-created', 'Ожидает курьера'],
@@ -34,10 +35,11 @@ export default function Dashboard() {
     return api.get('/business/my')
       .then(r => {
         setBusiness(r.data);
-        return api.get('/business/my/orders').then(or => setOrders(or.data));
+        return api.get('/business/my/orders').then(or => setOrders(asArray(or.data)));
       })
       .catch(err => {
         if (err.response?.status === 404) setNeedCreate(true);
+        else setError(err.response?.data?.error || 'Не удалось загрузить заказы');
       });
   }
 
@@ -57,7 +59,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (!business) return;
     const interval = setInterval(() => {
-      api.get('/business/my/orders').then(r => setOrders(r.data)).catch(() => {});
+      api.get('/business/my/orders').then(r => setOrders(asArray(r.data))).catch(() => {});
     }, 15000);
     return () => clearInterval(interval);
   }, [business]);
@@ -166,14 +168,19 @@ export default function Dashboard() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
         {filteredOrders.map(order => (
           <div key={order.id} className="card">
+            {(() => {
+              const items = asArray(order?.items);
+              const totalPrice = asNumber(order?.totalPrice);
+              return (
+                <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px' }}>
               <div>
-                <p style={{ fontWeight: 700 }}>#{order.id.slice(-6).toUpperCase()}</p>
-                <p className="text-sm text-gray">{new Date(order.createdAt).toLocaleString('ru-RU')}</p>
+                <p style={{ fontWeight: 700 }}>#{shortId(order?.id)}</p>
+                <p className="text-sm text-gray">{formatDate(order?.createdAt)}</p>
               </div>
               <div style={{ textAlign: 'right' }}>
                 <StatusBadge status={order.status} />
-                <p style={{ fontWeight: 700, marginTop: '4px' }}>{order.totalPrice.toFixed(0)} ₽</p>
+                <p style={{ fontWeight: 700, marginTop: '4px' }}>{formatCurrency(totalPrice)}</p>
               </div>
             </div>
 
@@ -202,12 +209,15 @@ export default function Dashboard() {
             )}
 
             <div style={{ marginTop: '8px', borderTop: '1px solid #e5e7eb', paddingTop: '8px' }}>
-              {order.items.map(item => (
-                <span key={item.id} style={{ fontSize: '12px', color: '#6b7280', marginRight: '10px' }}>
-                  {item.product.name} ×{item.quantity}
+              {items.map((item, index) => (
+                <span key={item?.id || `${order.id}-${index}`} style={{ fontSize: '12px', color: '#6b7280', marginRight: '10px' }}>
+                  {item?.product?.name || 'Товар'} ×{item?.quantity || 0}
                 </span>
               ))}
             </div>
+                </>
+              );
+            })()}
           </div>
         ))}
       </div>

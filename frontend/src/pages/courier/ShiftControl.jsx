@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../api/client';
 import { CITY_OPTIONS } from '../../lib/cities';
+import { asArray } from '../../lib/safeData';
 
 export default function ShiftControl() {
   const { user } = useAuth();
@@ -22,8 +23,10 @@ export default function ShiftControl() {
       setIsActive(shiftRes.data.isActive);
       if (shiftRes.data.city) setCity(shiftRes.data.city);
       // Find current active order (ACCEPTED or DELIVERING)
-      const active = ordersRes.data.find(o => o.status === 'ACCEPTED' || o.status === 'DELIVERING');
+      const active = asArray(ordersRes.data).find(o => o.status === 'ACCEPTED' || o.status === 'DELIVERING');
       setActiveOrder(active || null);
+    }).catch((err) => {
+      setError(err.response?.data?.error || 'Не удалось загрузить панель курьера');
     }).finally(() => setLoading(false));
   }, []);
 

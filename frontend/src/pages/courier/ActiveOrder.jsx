@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../api/client';
 import LeafletMap from '../../components/LeafletMap';
 import { fetchRoute } from '../../lib/map';
+import { asArray, asNumber, formatCurrency } from '../../lib/safeData';
 
 const STATUS_LABELS = {
   ACCEPTED: 'Принят — едете к точке выдачи',
@@ -29,14 +30,19 @@ export default function ActiveOrder() {
 
   function load() {
     return api.get('/courier/orders').then(r => {
-      const active = r.data.find(o => o.status === 'ACCEPTED' || o.status === 'DELIVERING');
-      const done = r.data.filter(o => o.status === 'DONE');
+      const orders = asArray(r.data);
+      const active = orders.find(o => o.status === 'ACCEPTED' || o.status === 'DELIVERING');
+      const done = orders.filter(o => o.status === 'DONE');
       setOrder(active || null);
       setHistory(done);
     });
   }
 
-  useEffect(() => { load().finally(() => setLoading(false)); }, []);
+  useEffect(() => {
+    load()
+      .catch((err) => setError(err.response?.data?.error || 'Не удалось загрузить активный заказ'))
+      .finally(() => setLoading(false));
+  }, []);
 
   useEffect(() => {
     if (order?.courierLat != null && order?.courierLng != null) {
@@ -133,6 +139,11 @@ export default function ActiveOrder() {
 
   if (loading) return <div className="page"><p>Загрузка...</p></div>;
 
+  const items = asArray(order?.items);
+  const businessName = order?.business?.name || 'Заведение';
+  const customerName = order?.customer?.name || order?.customer?.email || 'Клиент';
+  const totalPrice = asNumber(order?.totalPrice);
+
   return (
     <div className="page" style={{ maxWidth: '560px' }}>
       <h1 className="page-title">Мой заказ</h1>
@@ -152,12 +163,12 @@ export default function ActiveOrder() {
         <div className="card" style={{ marginBottom: '16px' }}>
           {/* Status */}
           <div style={{ background: '#eff6ff', borderRadius: '8px', padding: '12px 14px', marginBottom: '14px' }}>
-            <p style={{ fontWeight: 700, color: '#1d4ed8' }}>{STATUS_LABELS[order.status]}</p>
+            <p style={{ fontWeight: 700, color: '#1d4ed8' }}>{STATUS_LABELS[order.status] || 'Статус обновляется'}</p>
           </div>
 
           {/* Business */}
           <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '2px' }}>Ресторан / магазин</p>
-          <p style={{ fontWeight: 700, fontSize: '16px', marginBottom: '12px' }}>{order.business.name}</p>
+          <p style={{ fontWeight: 700, fontSize: '16px', marginBottom: '12px' }}>{businessName}</p>
 
           {/* Delivery address — shown only after accepting */}
           <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '2px' }}>Адрес доставки</p>
@@ -192,19 +203,19 @@ export default function ActiveOrder() {
 
           {/* Customer contact */}
           <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '2px' }}>Клиент</p>
-          <p style={{ marginBottom: '12px' }}>{order.customer?.name || order.customer?.email}</p>
+          <p style={{ marginBottom: '12px' }}>{customerName}</p>
 
           {/* Order items */}
           <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '10px', marginBottom: '14px' }}>
-            {order.items.map(item => (
-              <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '4px' }}>
-                <span>{item.product.name} × {item.quantity}</span>
-                <span>{(item.product.price * item.quantity).toFixed(0)} ₽</span>
+            {items.map((item, index) => (
+              <div key={item?.id || `${order?.id || 'order'}-${index}`} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '4px' }}>
+                <span>{item?.product?.name || 'Товар'} × {item?.quantity || 0}</span>
+                <span>{formatCurrency(asNumber(item?.product?.price) * asNumber(item?.quantity))}</span>
               </div>
             ))}
             <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, marginTop: '6px' }}>
               <span>Итого</span>
-              <span>{order.totalPrice.toFixed(0)} ₽</span>
+              <span>{formatCurrency(totalPrice)}</span>
             </div>
           </div>
 

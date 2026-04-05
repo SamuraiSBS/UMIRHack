@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/client';
+import { asArray, formatCurrency, shortId } from '../../lib/safeData';
 
 export default function AvailableOrders() {
   const [orders, setOrders] = useState([]);
@@ -16,7 +17,7 @@ export default function AvailableOrders() {
       api.get('/courier/shift'),
     ])
       .then(([ordersRes, shiftRes]) => {
-        setOrders(ordersRes.data);
+        setOrders(asArray(ordersRes.data));
         setShiftCity(shiftRes.data.city || '');
       })
       .catch(err => setError(err.response?.data?.error || 'Ошибка загрузки'))
@@ -62,23 +63,25 @@ export default function AvailableOrders() {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {orders.map(order => {
-          // Count total items
-          const itemCount = order.items.reduce((s, i) => s + i.quantity, 0);
+          const items = asArray(order?.items);
+          const itemCount = items.reduce((sum, item) => sum + (Number(item?.quantity) || 0), 0);
+          const businessName = order?.business?.name || 'Заведение';
 
+          // Count total items
           return (
-            <div key={order.id} className="card">
+            <div key={order?.id || businessName} className="card">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div style={{ flex: 1 }}>
-                  <p style={{ fontWeight: 700, fontSize: '15px' }}>{order.business.name}</p>
+                  <p style={{ fontWeight: 700, fontSize: '15px' }}>{businessName}</p>
 
                   {/* Show limited info before accepting */}
                   <p className="text-sm text-gray" style={{ marginTop: '4px' }}>
-                    {itemCount} товар(ов) • {order.totalPrice.toFixed(0)} ₽
+                    {itemCount} товар(ов) • {formatCurrency(order?.totalPrice)}
                   </p>
 
                   <p className="text-sm" style={{ marginTop: '6px', color: '#374151' }}>
                     <strong>Откуда:</strong>{' '}
-                    {order.tradingPoint ? `${order.tradingPoint.name} — ${order.tradingPoint.address}` : order.business.name}
+                    {order?.tradingPoint ? `${order.tradingPoint.name} — ${order.tradingPoint.address}` : businessName}
                   </p>
 
                   {order.distanceKm != null && (
@@ -88,7 +91,7 @@ export default function AvailableOrders() {
                   )}
 
                   <p className="text-sm text-gray" style={{ marginTop: '2px' }}>
-                    Заказ #{order.id.slice(-6).toUpperCase()}
+                    Заказ #{shortId(order?.id)}
                   </p>
 
                   {order.city && (
@@ -99,29 +102,29 @@ export default function AvailableOrders() {
 
                   {/* Composition summary */}
                   <div style={{ marginTop: '8px', fontSize: '12px', color: '#6b7280' }}>
-                    {order.items.slice(0, 3).map((item, i) => (
-                      <span key={i}>{item.product.name} ×{item.quantity}{i < Math.min(order.items.length, 3) - 1 ? ', ' : ''}</span>
+                    {items.slice(0, 3).map((item, i) => (
+                      <span key={`${order?.id || 'order'}-${i}`}>{item?.product?.name || 'Товар'} ×{item?.quantity || 0}{i < Math.min(items.length, 3) - 1 ? ', ' : ''}</span>
                     ))}
-                    {order.items.length > 3 && <span> и ещё {order.items.length - 3}...</span>}
+                    {items.length > 3 && <span> и ещё {items.length - 3}...</span>}
                   </div>
                 </div>
 
                 <div style={{ marginLeft: '12px', textAlign: 'right', flexShrink: 0 }}>
                   {order.deliveryFee != null ? (
                     <p style={{ fontWeight: 700, fontSize: '18px', color: '#16a34a', marginBottom: '4px' }}>
-                      +{order.deliveryFee.toFixed(0)} ₽
+                      +{formatCurrency(order.deliveryFee).replace(' ₽', '')} ₽
                     </p>
                   ) : null}
                   <p style={{ fontWeight: order.deliveryFee != null ? 400 : 700, fontSize: order.deliveryFee != null ? '12px' : '18px', color: order.deliveryFee != null ? '#6b7280' : '#16a34a', marginBottom: '8px' }}>
-                    {order.deliveryFee != null ? `заказ ${order.totalPrice.toFixed(0)} ₽` : `${order.totalPrice.toFixed(0)} ₽`}
+                    {order.deliveryFee != null ? `заказ ${formatCurrency(order?.totalPrice)}` : `${formatCurrency(order?.totalPrice)}`}
                   </p>
                   <button
                     className="btn-primary"
-                    disabled={accepting === order.id}
+                    disabled={accepting === order?.id || !order?.id}
                     onClick={() => handleAccept(order.id)}
                     style={{ fontSize: '13px', padding: '8px 16px' }}
                   >
-                    {accepting === order.id ? '...' : 'Принять'}
+                    {accepting === order?.id ? '...' : 'Принять'}
                   </button>
                 </div>
               </div>

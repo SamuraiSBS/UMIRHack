@@ -3,6 +3,7 @@ import { getCityConfig } from './cities';
 let leafletPromise;
 const reverseGeocodeCache = new Map();
 const geocodeCache = new Map();
+const DEFAULT_CENTER = [55.7558, 37.6176];
 
 function roundCoordinate(value) {
   return Number(value).toFixed(5);
@@ -29,6 +30,32 @@ function appendStylesheet(href) {
   document.head.appendChild(link);
 }
 
+export function normalizePoint(point) {
+  const lat = Number(point?.lat);
+  const lng = Number(point?.lng);
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return null;
+  }
+
+  return { lat, lng };
+}
+
+export function normalizeCenter(center) {
+  if (!Array.isArray(center) || center.length < 2) {
+    return DEFAULT_CENTER;
+  }
+
+  const lat = Number(center[0]);
+  const lng = Number(center[1]);
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return DEFAULT_CENTER;
+  }
+
+  return [lat, lng];
+}
+
 export function loadLeaflet() {
   if (typeof window === 'undefined') return Promise.reject(new Error('Leaflet requires a browser'));
   if (window.L) return Promise.resolve(window.L);
@@ -40,8 +67,21 @@ export function loadLeaflet() {
     const script = document.createElement('script');
     script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
     script.async = true;
-    script.onload = () => resolve(window.L);
-    script.onerror = () => reject(new Error('Failed to load Leaflet'));
+    script.onload = () => {
+      if (window.L) {
+        resolve(window.L);
+        return;
+      }
+
+      leafletPromise = undefined;
+      script.remove();
+      reject(new Error('Leaflet loaded without exposing window.L'));
+    };
+    script.onerror = () => {
+      leafletPromise = undefined;
+      script.remove();
+      reject(new Error('Failed to load Leaflet'));
+    };
     document.body.appendChild(script);
   });
 
@@ -104,8 +144,15 @@ export async function geocodeAddress(query, city) {
 }
 
 export async function fetchRoute(start, end) {
+  const normalizedStart = normalizePoint(start);
+  const normalizedEnd = normalizePoint(end);
+
+  if (!normalizedStart || !normalizedEnd) {
+    return null;
+  }
+
   const response = await fetch(
-    `https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`,
+    `https://router.project-osrm.org/route/v1/driving/${normalizedStart.lng},${normalizedStart.lat};${normalizedEnd.lng},${normalizedEnd.lat}?overview=full&geometries=geojson`,
     {
       headers: {
         Accept: 'application/json',
@@ -116,11 +163,20 @@ export async function fetchRoute(start, end) {
   const data = await response.json();
   const route = data.routes?.[0];
   if (!route) return null;
+  const coordinates = Array.isArray(route.geometry?.coordinates)
+    ? route.geometry.coordinates
+        .map(([lng, lat]) => [Number(lat), Number(lng)])
+        .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng))
+    : [];
+
+  if (!coordinates.length) {
+    return null;
+  }
 
   return {
-    distanceKm: route.distance / 1000,
-    durationMin: route.duration / 60,
-    coordinates: route.geometry.coordinates.map(([lng, lat]) => [lat, lng]),
+    distanceKm: Number(route.distance) / 1000,
+    durationMin: Number(route.duration) / 60,
+    coordinates,
   };
 }
 

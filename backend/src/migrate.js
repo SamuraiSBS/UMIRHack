@@ -3,6 +3,8 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 const migrations = [
+  `ALTER TYPE "OrderStatus" ADD VALUE IF NOT EXISTS 'REJECTED'`,
+
   // Order table — location & pricing columns added after initial deploy
   `ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "city" TEXT`,
   `ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "deliveryLat" DOUBLE PRECISION`,

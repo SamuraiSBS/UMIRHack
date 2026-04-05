@@ -10,7 +10,7 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "node prisma/seed.js",
     "db:generate": "prisma generate",
-    "postinstall": "export DIRECT_URL=${DIRECT_URL:-${DATABASE_URL:-placeholder}} && prisma generate"
+    "postinstall": "node -e \"const { execSync } = require('child_process'); process.env.DIRECT_URL = process.env.DIRECT_URL || process.env.DATABASE_URL || 'placeholder'; execSync('npx prisma generate', { stdio: 'inherit' });\""
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
