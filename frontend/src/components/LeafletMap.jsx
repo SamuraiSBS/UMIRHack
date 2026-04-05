@@ -34,6 +34,10 @@ export default function LeafletMap({
   destination,
   courier,
   route,
+  originLabel = 'B',
+  destinationLabel = 'C',
+  originPopup = 'Бизнес',
+  destinationPopup = 'Клиент',
   height = 320,
 }) {
   const containerRef = useRef(null);
@@ -124,17 +128,17 @@ export default function LeafletMap({
 
     if (normalizedOrigin) {
       const marker = L.marker([normalizedOrigin.lat, normalizedOrigin.lng], {
-        icon: createMarkerIcon(L, 'map-pin-origin', 'B'),
+        icon: createMarkerIcon(L, 'map-pin-origin', originLabel),
       }).addTo(layer);
-      marker.bindPopup('Бизнес');
+      marker.bindPopup(originPopup);
       bounds.push(marker.getLatLng());
     }
 
     if (normalizedDestination) {
       const marker = L.marker([normalizedDestination.lat, normalizedDestination.lng], {
-        icon: createMarkerIcon(L, 'map-pin-destination', 'C'),
+        icon: createMarkerIcon(L, 'map-pin-destination', destinationLabel),
       }).addTo(layer);
-      marker.bindPopup('Клиент');
+      marker.bindPopup(destinationPopup);
       bounds.push(marker.getLatLng());
     }
 
@@ -149,7 +153,17 @@ export default function LeafletMap({
     if (bounds.length > 1) {
       mapRef.current.fitBounds(L.latLngBounds(bounds), { padding: [24, 24] });
     }
-  }, [leaflet, normalizedOrigin, normalizedDestination, normalizedCourier, normalizedRoute]);
+  }, [
+    leaflet,
+    normalizedOrigin,
+    normalizedDestination,
+    normalizedCourier,
+    normalizedRoute,
+    originLabel,
+    destinationLabel,
+    originPopup,
+    destinationPopup,
+  ]);
 
   if (mapError) {
     return (
