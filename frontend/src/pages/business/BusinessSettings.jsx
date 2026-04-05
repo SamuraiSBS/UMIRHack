@@ -1,18 +1,30 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import api from '../../api/client';
+import LeafletMap from '../../components/LeafletMap';
+import { getCityConfig } from '../../lib/cities';
+import { reverseGeocode } from '../../lib/map';
+
+function resolveMapCenter(point, fallbackCenter) {
+  if (point?.lat != null && point?.lng != null) {
+    return [point.lat, point.lng];
+  }
+  return fallbackCenter;
+}
 
 export default function BusinessSettings() {
   const [business, setBusiness] = useState(null);
   const [form, setForm] = useState({ name: '', description: '', deliveryZone: '' });
   const [points, setPoints] = useState([]);
-  const [pointForm, setPointForm] = useState({ name: '', address: '' });
+  const [pointForm, setPointForm] = useState({ name: '', address: '', lat: null, lng: null });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [addingPoint, setAddingPoint] = useState(false);
   const [deletingPoint, setDeletingPoint] = useState(null);
   const [editingPointId, setEditingPointId] = useState(null);
-  const [editPointForm, setEditPointForm] = useState({ name: '', address: '' });
+  const [editPointForm, setEditPointForm] = useState({ name: '', address: '', lat: null, lng: null });
   const [editingPointSaving, setEditingPointSaving] = useState(false);
+  const [resolvingAddPoint, setResolvingAddPoint] = useState(false);
+  const [resolvingEditPoint, setResolvingEditPoint] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -34,8 +46,37 @@ export default function BusinessSettings() {
       .finally(() => setLoading(false));
   }, []);
 
-  const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
-  const setPoint = (k) => (e) => setPointForm(f => ({ ...f, [k]: e.target.value }));
+  const cityConfig = useMemo(
+    () => getCityConfig(form.deliveryZone || business?.deliveryZone || ''),
+    [business?.deliveryZone, form.deliveryZone]
+  );
+
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const setPoint = (k) => (e) => setPointForm((f) => ({ ...f, [k]: e.target.value }));
+
+  async function syncPointFromMap(setter, setResolving, point) {
+    setResolving(true);
+    setter((prev) => ({ ...prev, lat: point.lat, lng: point.lng }));
+    try {
+      const result = await reverseGeocode(point.lat, point.lng);
+      const nextAddress = result.display_name || `${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}`;
+      setter((prev) => ({
+        ...prev,
+        address: nextAddress,
+        lat: point.lat,
+        lng: point.lng,
+      }));
+    } catch {
+      setter((prev) => ({
+        ...prev,
+        address: prev.address || `${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}`,
+        lat: point.lat,
+        lng: point.lng,
+      }));
+    } finally {
+      setResolving(false);
+    }
+  }
 
   async function handleSaveBusiness(e) {
     e.preventDefault();
@@ -55,13 +96,21 @@ export default function BusinessSettings() {
 
   async function handleAddPoint(e) {
     e.preventDefault();
-    if (!pointForm.name || !pointForm.address) { setError('Название и адрес обязательны'); return; }
+    if (!pointForm.name || !pointForm.address) {
+      setError('Название и адрес обязательны');
+      return;
+    }
+    if (pointForm.lat == null || pointForm.lng == null) {
+      setError('Выберите точку на карте');
+      return;
+    }
     setError('');
     setAddingPoint(true);
     try {
       const res = await api.post('/business/my/trading-points', pointForm);
-      setPoints(prev => [...prev, res.data]);
-      setPointForm({ name: '', address: '' });
+      setPoints((prev) => [...prev, res.data]);
+      setPointForm({ name: '', address: '', lat: null, lng: null });
+      setSuccess('Точка добавлена!');
     } catch (err) {
       setError(err.response?.data?.error || 'Ошибка добавления точки');
     } finally {
@@ -74,7 +123,7 @@ export default function BusinessSettings() {
     setDeletingPoint(id);
     try {
       await api.delete(`/business/my/trading-points/${id}`);
-      setPoints(prev => prev.filter(p => p.id !== id));
+      setPoints((prev) => prev.filter((p) => p.id !== id));
     } catch (err) {
       setError(err.response?.data?.error || 'Ошибка удаления');
     } finally {
@@ -84,23 +133,36 @@ export default function BusinessSettings() {
 
   function startEditPoint(point) {
     setEditingPointId(point.id);
-    setEditPointForm({ name: point.name, address: point.address });
+    setEditPointForm({
+      name: point.name,
+      address: point.address,
+      lat: point.lat,
+      lng: point.lng,
+    });
     setError('');
   }
 
   function cancelEditPoint() {
     setEditingPointId(null);
-    setEditPointForm({ name: '', address: '' });
+    setEditPointForm({ name: '', address: '', lat: null, lng: null });
   }
 
   async function handleEditPoint(id) {
-    if (!editPointForm.name || !editPointForm.address) { setError('Название и адрес обязательны'); return; }
+    if (!editPointForm.name || !editPointForm.address) {
+      setError('Название и адрес обязательны');
+      return;
+    }
+    if (editPointForm.lat == null || editPointForm.lng == null) {
+      setError('Выберите точку на карте');
+      return;
+    }
     setError('');
     setEditingPointSaving(true);
     try {
       const res = await api.patch(`/business/my/trading-points/${id}`, editPointForm);
-      setPoints(prev => prev.map(p => p.id === id ? res.data : p));
+      setPoints((prev) => prev.map((p) => (p.id === id ? res.data : p)));
       setEditingPointId(null);
+      setEditPointForm({ name: '', address: '', lat: null, lng: null });
       setSuccess('Точка обновлена!');
     } catch (err) {
       setError(err.response?.data?.error || 'Ошибка обновления');
@@ -110,6 +172,8 @@ export default function BusinessSettings() {
   }
 
   if (loading) return <div className="page"><p>Загрузка...</p></div>;
+
+  const addPointMarker = pointForm.lat != null && pointForm.lng != null ? { lat: pointForm.lat, lng: pointForm.lng } : null;
 
   return (
     <div className="page">
@@ -122,7 +186,6 @@ export default function BusinessSettings() {
         </div>
       )}
 
-      {/* Business info form */}
       <div className="card" style={{ marginBottom: '24px' }}>
         <h2 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '14px' }}>Основная информация</h2>
         <form onSubmit={handleSaveBusiness}>
@@ -136,7 +199,7 @@ export default function BusinessSettings() {
           </div>
           <div className="form-group">
             <label>Зона доставки</label>
-            <input value={form.deliveryZone} onChange={set('deliveryZone')} placeholder="Например: Центральный район, в радиусе 5 км" />
+            <input value={form.deliveryZone} onChange={set('deliveryZone')} placeholder="Например: Ростов-на-Дону" />
           </div>
           <button type="submit" className="btn-primary" disabled={saving}>
             {saving ? 'Сохраняем...' : 'Сохранить'}
@@ -144,7 +207,6 @@ export default function BusinessSettings() {
         </form>
       </div>
 
-      {/* Trading points */}
       <div className="card">
         <h2 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '14px' }}>
           Торговые точки ({points.length})
@@ -155,43 +217,65 @@ export default function BusinessSettings() {
         )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
-          {points.map(p => (
-            <div key={p.id} className="card" style={{ padding: '12px' }}>
-              {editingPointId === p.id ? (
-                <div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label>Название</label>
-                      <input value={editPointForm.name} onChange={e => setEditPointForm(f => ({ ...f, name: e.target.value }))} />
-                    </div>
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label>Адрес</label>
-                      <input value={editPointForm.address} onChange={e => setEditPointForm(f => ({ ...f, address: e.target.value }))} />
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <button onClick={() => handleEditPoint(p.id)} disabled={editingPointSaving} className="btn-success" style={{ padding: '4px 10px', fontSize: '12px' }}>
-                      {editingPointSaving ? '...' : 'Сохранить'}
-                    </button>
-                    <button onClick={cancelEditPoint} className="btn-outline" style={{ padding: '4px 10px', fontSize: '12px' }}>Отмена</button>
-                  </div>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          {points.map((p) => {
+            const editPointMarker = editPointForm.lat != null && editPointForm.lng != null
+              ? { lat: editPointForm.lat, lng: editPointForm.lng }
+              : null;
+
+            return (
+              <div key={p.id} className="card" style={{ padding: '12px' }}>
+                {editingPointId === p.id ? (
                   <div>
-                    <p style={{ fontWeight: 600, fontSize: '14px' }}>{p.name}</p>
-                    <p className="text-sm text-gray">{p.address}</p>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label>Название</label>
+                        <input value={editPointForm.name} onChange={(e) => setEditPointForm((f) => ({ ...f, name: e.target.value }))} />
+                      </div>
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label>Адрес</label>
+                        <input value={editPointForm.address} onChange={(e) => setEditPointForm((f) => ({ ...f, address: e.target.value }))} />
+                      </div>
+                    </div>
+                    <div style={{ marginBottom: '10px' }}>
+                      <LeafletMap
+                        center={resolveMapCenter(editPointMarker, resolveMapCenter(p, cityConfig.center))}
+                        zoom={editPointMarker ? 15 : cityConfig.zoom}
+                        onMapClick={(point) => syncPointFromMap(setEditPointForm, setResolvingEditPoint, point)}
+                        origin={editPointMarker}
+                        height={220}
+                      />
+                    </div>
+                    <p className="text-sm text-gray" style={{ marginBottom: '10px' }}>
+                      Нажмите на карту, чтобы обновить точку бизнеса.
+                      {resolvingEditPoint ? ' Обновляем адрес...' : ''}
+                    </p>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button onClick={() => handleEditPoint(p.id)} disabled={editingPointSaving} className="btn-success" style={{ padding: '4px 10px', fontSize: '12px' }}>
+                        {editingPointSaving ? '...' : 'Сохранить'}
+                      </button>
+                      <button onClick={cancelEditPoint} className="btn-outline" style={{ padding: '4px 10px', fontSize: '12px' }}>Отмена</button>
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', gap: '6px', flexShrink: 0, marginLeft: '12px' }}>
-                    <button onClick={() => startEditPoint(p)} className="btn-outline" style={{ padding: '4px 10px', fontSize: '12px' }}>Изменить</button>
-                    <button onClick={() => handleDeletePoint(p.id)} disabled={deletingPoint === p.id} className="btn-danger" style={{ padding: '4px 10px', fontSize: '12px' }}>
-                      {deletingPoint === p.id ? '...' : 'Удалить'}
-                    </button>
+                ) : (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                    <div>
+                      <p style={{ fontWeight: 600, fontSize: '14px' }}>{p.name}</p>
+                      <p className="text-sm text-gray">{p.address}</p>
+                      {p.lat != null && p.lng != null && (
+                        <p className="text-sm text-gray">Координаты: {p.lat.toFixed(5)}, {p.lng.toFixed(5)}</p>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                      <button onClick={() => startEditPoint(p)} className="btn-outline" style={{ padding: '4px 10px', fontSize: '12px' }}>Изменить</button>
+                      <button onClick={() => handleDeletePoint(p.id)} disabled={deletingPoint === p.id} className="btn-danger" style={{ padding: '4px 10px', fontSize: '12px' }}>
+                        {deletingPoint === p.id ? '...' : 'Удалить'}
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          ))}
+                )}
+              </div>
+            );
+          })}
         </div>
 
         <h3 style={{ fontSize: '14px', fontWeight: 700, marginBottom: '10px' }}>Добавить точку</h3>
@@ -206,6 +290,19 @@ export default function BusinessSettings() {
               <input value={pointForm.address} onChange={setPoint('address')} placeholder="ул. Ленина, 1" required />
             </div>
           </div>
+          <div style={{ marginTop: '12px', marginBottom: '10px' }}>
+            <LeafletMap
+              center={resolveMapCenter(addPointMarker, cityConfig.center)}
+              zoom={addPointMarker ? 15 : cityConfig.zoom}
+              onMapClick={(point) => syncPointFromMap(setPointForm, setResolvingAddPoint, point)}
+              origin={addPointMarker}
+              height={240}
+            />
+          </div>
+          <p className="text-sm text-gray" style={{ marginBottom: '12px' }}>
+            Нажмите на карту, чтобы сохранить точное место бизнеса.
+            {resolvingAddPoint ? ' Обновляем адрес...' : ''}
+          </p>
           <button type="submit" className="btn-primary" disabled={addingPoint} style={{ marginTop: '12px' }}>
             {addingPoint ? 'Добавляем...' : '+ Добавить точку'}
           </button>

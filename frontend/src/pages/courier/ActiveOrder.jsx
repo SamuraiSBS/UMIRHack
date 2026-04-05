@@ -48,13 +48,18 @@ export default function ActiveOrder() {
     let cancelled = false;
 
     async function loadRoutePreview() {
-      if (order?.deliveryLat == null || order?.deliveryLng == null || !courierPosition) {
+      const pickupPoint = order?.tradingPoint?.lat != null && order?.tradingPoint?.lng != null
+        ? { lat: order.tradingPoint.lat, lng: order.tradingPoint.lng }
+        : null;
+      const routeStart = pickupPoint || courierPosition;
+
+      if (order?.deliveryLat == null || order?.deliveryLng == null || !routeStart) {
         setRoute(null);
         return;
       }
 
       try {
-        const result = await fetchRoute(courierPosition, {
+        const result = await fetchRoute(routeStart, {
           lat: order.deliveryLat,
           lng: order.deliveryLng,
         });
@@ -68,7 +73,7 @@ export default function ActiveOrder() {
     return () => {
       cancelled = true;
     };
-  }, [courierPosition, order?.deliveryLat, order?.deliveryLng]);
+  }, [courierPosition, order?.deliveryLat, order?.deliveryLng, order?.tradingPoint?.lat, order?.tradingPoint?.lng]);
 
   useEffect(() => {
     if (!order || !['ACCEPTED', 'DELIVERING'].includes(order.status)) return undefined;
@@ -162,7 +167,7 @@ export default function ActiveOrder() {
             <div style={{ marginBottom: '14px' }}>
               <div className="tracking-summary">
                 <div>
-                  <strong>Маршрут до клиента</strong>
+                  <strong>Маршрут от точки бизнеса до клиента</strong>
                   <p className="text-sm text-gray">{geoStatus}</p>
                 </div>
                 {route && (
@@ -176,6 +181,7 @@ export default function ActiveOrder() {
                 center={[order.deliveryLat, order.deliveryLng]}
                 zoom={13}
                 interactive={false}
+                origin={order.tradingPoint?.lat != null && order.tradingPoint?.lng != null ? { lat: order.tradingPoint.lat, lng: order.tradingPoint.lng } : null}
                 destination={{ lat: order.deliveryLat, lng: order.deliveryLng }}
                 courier={courierPosition || (order.courierLat != null && order.courierLng != null ? { lat: order.courierLat, lng: order.courierLng } : null)}
                 route={route?.coordinates}

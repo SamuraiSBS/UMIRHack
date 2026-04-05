@@ -4,6 +4,12 @@ const { verifyToken, requireRole } = require('../middleware/auth');
 
 const prisma = new PrismaClient();
 
+function parseCoordinate(value) {
+  if (value == null || value === '') return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
 // GET /api/business — list all businesses (public)
 router.get('/business', async (req, res) => {
   try {
@@ -92,7 +98,10 @@ router.get('/business/my/trading-points', verifyToken, requireRole('BUSINESS'), 
     const business = await prisma.business.findUnique({ where: { ownerId: req.user.id } });
     if (!business) return res.status(404).json({ error: 'No business found' });
 
-    const points = await prisma.tradingPoint.findMany({ where: { businessId: business.id } });
+    const points = await prisma.tradingPoint.findMany({
+      where: { businessId: business.id },
+      orderBy: { name: 'asc' },
+    });
     res.json(points);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch trading points' });
@@ -101,15 +110,18 @@ router.get('/business/my/trading-points', verifyToken, requireRole('BUSINESS'), 
 
 // POST /api/business/my/trading-points — add trading point
 router.post('/business/my/trading-points', verifyToken, requireRole('BUSINESS'), async (req, res) => {
-  const { name, address } = req.body;
+  const { name, address, lat, lng } = req.body;
+  const pointLat = parseCoordinate(lat);
+  const pointLng = parseCoordinate(lng);
   if (!name || !address) return res.status(400).json({ error: 'Name and address are required' });
+  if (pointLat == null || pointLng == null) return res.status(400).json({ error: 'Point coordinates are required' });
 
   try {
     const business = await prisma.business.findUnique({ where: { ownerId: req.user.id } });
     if (!business) return res.status(404).json({ error: 'No business found' });
 
     const point = await prisma.tradingPoint.create({
-      data: { name, address, businessId: business.id },
+      data: { name, address, lat: pointLat, lng: pointLng, businessId: business.id },
     });
     res.status(201).json(point);
   } catch (err) {
@@ -119,8 +131,15 @@ router.post('/business/my/trading-points', verifyToken, requireRole('BUSINESS'),
 
 // PATCH /api/business/my/trading-points/:id — update trading point
 router.patch('/business/my/trading-points/:id', verifyToken, requireRole('BUSINESS'), async (req, res) => {
-  const { name, address } = req.body;
-  if (!name && !address) return res.status(400).json({ error: 'Name or address required' });
+  const { name, address, lat, lng } = req.body;
+  const pointLat = parseCoordinate(lat);
+  const pointLng = parseCoordinate(lng);
+  if (!name && !address && lat === undefined && lng === undefined) {
+    return res.status(400).json({ error: 'Name, address or coordinates required' });
+  }
+  if ((lat !== undefined || lng !== undefined) && (pointLat == null || pointLng == null)) {
+    return res.status(400).json({ error: 'Valid point coordinates are required' });
+  }
 
   try {
     const business = await prisma.business.findUnique({ where: { ownerId: req.user.id } });
@@ -131,7 +150,12 @@ router.patch('/business/my/trading-points/:id', verifyToken, requireRole('BUSINE
 
     const updated = await prisma.tradingPoint.update({
       where: { id: req.params.id },
-      data: { ...(name && { name }), ...(address && { address }) },
+      data: {
+        ...(name && { name }),
+        ...(address && { address }),
+        ...(lat !== undefined && { lat: pointLat }),
+        ...(lng !== undefined && { lng: pointLng }),
+      },
     });
     res.json(updated);
   } catch (err) {
@@ -158,7 +182,10 @@ router.delete('/business/my/trading-points/:id', verifyToken, requireRole('BUSIN
 // GET /api/business/:id/trading-points — list trading points for a business (public)
 router.get('/business/:id/trading-points', async (req, res) => {
   try {
-    const points = await prisma.tradingPoint.findMany({ where: { businessId: req.params.id } });
+    const points = await prisma.tradingPoint.findMany({
+      where: { businessId: req.params.id },
+      orderBy: { name: 'asc' },
+    });
     res.json(points);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch trading points' });

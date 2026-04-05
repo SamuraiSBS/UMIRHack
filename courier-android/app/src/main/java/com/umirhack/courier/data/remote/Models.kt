@@ -53,8 +53,11 @@ data class BusinessDto(
 )
 
 data class TradingPointDto(
+    val id: String? = null,
     val name: String,
     val address: String,
+    val lat: Double? = null,
+    val lng: Double? = null,
 )
 
 data class ProductDto(
@@ -77,6 +80,10 @@ data class OrderDto(
     val id: String,
     val status: String,
     val address: String? = null,
+    val deliveryLat: Double? = null,
+    val deliveryLng: Double? = null,
+    val courierLat: Double? = null,
+    val courierLng: Double? = null,
     val totalPrice: Double,
     val distanceKm: Double? = null,
     val deliveryFee: Double? = null,

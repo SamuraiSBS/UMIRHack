@@ -68,6 +68,8 @@ model TradingPoint {
   id         String   @id @default(cuid())
   name       String
   address    String
+  lat        Float?
+  lng        Float?
   businessId String
   business   Business @relation(fields: [businessId], references: [id])
   orders     Order[]

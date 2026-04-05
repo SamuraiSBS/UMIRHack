@@ -15,6 +15,7 @@ export default function LeafletMap({
   zoom = 12,
   interactive = true,
   onMapClick,
+  origin,
   destination,
   courier,
   route,
@@ -84,6 +85,14 @@ export default function LeafletMap({
       bounds.push(...polyline.getLatLngs());
     }
 
+    if (origin) {
+      const marker = L.marker([origin.lat, origin.lng], {
+        icon: createMarkerIcon(L, 'map-pin-origin', 'B'),
+      }).addTo(layer);
+      marker.bindPopup('Бизнес');
+      bounds.push(marker.getLatLng());
+    }
+
     if (destination) {
       const marker = L.marker([destination.lat, destination.lng], {
         icon: createMarkerIcon(L, 'map-pin-destination', 'C'),
@@ -103,7 +112,7 @@ export default function LeafletMap({
     if (bounds.length > 1) {
       mapRef.current.fitBounds(L.latLngBounds(bounds), { padding: [24, 24] });
     }
-  }, [leaflet, destination, courier, route]);
+  }, [leaflet, origin, destination, courier, route]);
 
   return <div ref={containerRef} className="map-shell" style={{ height }} />;
 }

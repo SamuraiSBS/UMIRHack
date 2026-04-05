@@ -1,5 +1,7 @@
 package com.umirhack.courier.ui.orders
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
@@ -17,6 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.umirhack.courier.ui.CourierUiState
 import com.umirhack.courier.ui.components.EmptyStateCard
@@ -46,6 +49,18 @@ private fun nextActionLabel(status: String): String? = when (status) {
     else -> null
 }
 
+private fun buildExternalRouteUri(
+    originLat: Double,
+    originLng: Double,
+    destinationLat: Double,
+    destinationLng: Double,
+): Uri = Uri.parse(
+    "https://www.google.com/maps/dir/?api=1" +
+        "&origin=$originLat,$originLng" +
+        "&destination=$destinationLat,$destinationLng" +
+        "&travelmode=driving"
+)
+
 @Composable
 fun ActiveOrderScreen(
     courierState: CourierUiState,
@@ -59,6 +74,7 @@ fun ActiveOrderScreen(
         onRefreshIfStale()
     }
 
+    val context = LocalContext.current
     val focusOrder = courierState.activeOrder ?: courierState.recentCompletedOrder
     val focusOrderItems = focusOrder?.items.orEmpty()
     val focusMerchantName = focusOrder?.business?.name ?: "Магазин не указан"
@@ -149,6 +165,30 @@ fun ActiveOrderScreen(
                             value = money(fee),
                             valueColor = MaterialTheme.colorScheme.secondary,
                         )
+                    }
+                    if (
+                        focusOrder.tradingPoint?.lat != null &&
+                        focusOrder.tradingPoint.lng != null &&
+                        focusOrder.deliveryLat != null &&
+                        focusOrder.deliveryLng != null
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                val intent = Intent(
+                                    Intent.ACTION_VIEW,
+                                    buildExternalRouteUri(
+                                        originLat = focusOrder.tradingPoint.lat,
+                                        originLng = focusOrder.tradingPoint.lng,
+                                        destinationLat = focusOrder.deliveryLat,
+                                        destinationLng = focusOrder.deliveryLng,
+                                    ),
+                                )
+                                context.startActivity(intent)
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("Открыть маршрут на карте")
+                        }
                     }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
                     Text("Состав заказа", style = MaterialTheme.typography.titleMedium)

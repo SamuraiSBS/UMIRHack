@@ -48,6 +48,44 @@ async function main() {
     create: { name: 'Суши Мастер', description: 'Японская кухня с доставкой', ownerId: owner2.id },
   });
 
+  await prisma.tradingPoint.upsert({
+    where: { id: `${biz1.id}-main-point` },
+    update: {
+      name: 'Пицца Экспресс на Буденновском',
+      address: 'Ростов-на-Дону, Буденновский проспект, 42',
+      lat: 47.2267,
+      lng: 39.7096,
+      businessId: biz1.id,
+    },
+    create: {
+      id: `${biz1.id}-main-point`,
+      name: 'Пицца Экспресс на Буденновском',
+      address: 'Ростов-на-Дону, Буденновский проспект, 42',
+      lat: 47.2267,
+      lng: 39.7096,
+      businessId: biz1.id,
+    },
+  });
+
+  await prisma.tradingPoint.upsert({
+    where: { id: `${biz2.id}-main-point` },
+    update: {
+      name: 'Суши Мастер в центре',
+      address: 'Ростов-на-Дону, улица Пушкинская, 154',
+      lat: 47.2298,
+      lng: 39.7284,
+      businessId: biz2.id,
+    },
+    create: {
+      id: `${biz2.id}-main-point`,
+      name: 'Суши Мастер в центре',
+      address: 'Ростов-на-Дону, улица Пушкинская, 154',
+      lat: 47.2298,
+      lng: 39.7284,
+      businessId: biz2.id,
+    },
+  });
+
   // Create products for Pizza
   const pizzaProducts = [
     { name: 'Маргарита', description: 'Томат, моцарелла, базилик', price: 450 },

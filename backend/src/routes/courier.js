@@ -101,7 +101,7 @@ router.get('/orders', verifyToken, requireRole('COURIER'), async (req, res) => {
         items: { include: { product: { select: { name: true, price: true } } } },
         customer: { select: { name: true, email: true } },
         business: { select: { name: true } },
-        tradingPoint: { select: { name: true, address: true } },
+        tradingPoint: { select: { id: true, name: true, address: true, lat: true, lng: true } },
       },
       orderBy: { createdAt: 'desc' },
     });

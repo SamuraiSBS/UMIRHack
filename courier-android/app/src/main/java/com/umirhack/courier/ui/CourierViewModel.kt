@@ -18,6 +18,10 @@ private val ACTIVE_STATUSES = setOf("ACCEPTED", "DELIVERING")
 private fun OrderDto.mergeWithFallback(fallback: OrderDto): OrderDto =
     copy(
         address = address ?: fallback.address,
+        deliveryLat = deliveryLat ?: fallback.deliveryLat,
+        deliveryLng = deliveryLng ?: fallback.deliveryLng,
+        courierLat = courierLat ?: fallback.courierLat,
+        courierLng = courierLng ?: fallback.courierLng,
         distanceKm = distanceKm ?: fallback.distanceKm,
         deliveryFee = deliveryFee ?: fallback.deliveryFee,
         createdAt = createdAt ?: fallback.createdAt,
@@ -32,8 +36,11 @@ private fun OrderDto.mergeWithFallback(fallback: OrderDto): OrderDto =
         tradingPoint = tradingPoint?.let { current ->
             val previous = fallback.tradingPoint
             current.copy(
+                id = current.id ?: previous?.id,
                 name = current.name.ifBlank { previous?.name.orEmpty() },
                 address = current.address.ifBlank { previous?.address.orEmpty() },
+                lat = current.lat ?: previous?.lat,
+                lng = current.lng ?: previous?.lng,
             )
         } ?: fallback.tradingPoint,
         customer = customer?.let { current ->

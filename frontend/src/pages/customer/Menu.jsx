@@ -183,6 +183,12 @@ export default function Menu() {
   }, [city]);
 
   useEffect(() => {
+    if (!tradingPointId && tradingPoints.length > 0) {
+      setTradingPointId(tradingPoints[0].id);
+    }
+  }, [tradingPointId, tradingPoints]);
+
+  useEffect(() => {
     let isMounted = true;
 
     async function loadMenu() {
@@ -237,13 +243,14 @@ export default function Menu() {
         return;
       }
 
-      const pickupSource = tradingPoints.find((point) => point.id === tradingPointId);
-      const pickupQuery = pickupSource
-        ? `${pickupSource.address}`
-        : `${business.name}, ${business.description || ''}`;
+      const pickupSource = tradingPoints.find((point) => point.id === tradingPointId) || tradingPoints[0] || null;
+      const pickupFromPoint = pickupSource?.lat != null && pickupSource?.lng != null
+        ? { lat: pickupSource.lat, lng: pickupSource.lng, label: pickupSource.address }
+        : null;
+      const pickupQuery = pickupSource?.address || `${business.name}, ${business.description || ''}`;
 
       try {
-        const pickup = await geocodeAddress(pickupQuery, city);
+        const pickup = pickupFromPoint || await geocodeAddress(pickupQuery, city);
         if (cancelled || !pickup) {
           const fallbackDistance = haversineKm(
             { lat: cityConfig.center[0], lng: cityConfig.center[1] },
@@ -328,6 +335,7 @@ export default function Menu() {
     setOrdering(true);
     try {
       const fullAddress = [city, address.trim(), addressDetails.trim()].filter(Boolean).join(', ');
+      const resolvedTradingPointId = tradingPointId || tradingPoints[0]?.id;
       await api.post('/orders', {
         businessId: id,
         city,
@@ -335,7 +343,7 @@ export default function Menu() {
         deliveryLat: deliveryPoint.lat,
         deliveryLng: deliveryPoint.lng,
         items: cartItems.map(({ productId, quantity }) => ({ productId, quantity })),
-        ...(tradingPointId && { tradingPointId }),
+        ...(resolvedTradingPointId && { tradingPointId: resolvedTradingPointId }),
         ...(distanceKm && { distanceKm: Number(distanceKm) }),
       });
       setSuccess('Заказ оформлен! Переходим к вашим заказам...');
@@ -364,6 +372,7 @@ export default function Menu() {
   }, {});
 
   const deliveryCost = distanceKm ? Math.max(50, Math.round(50 + Number(distanceKm) * 15)) : 0;
+  const selectedTradingPoint = tradingPoints.find((point) => point.id === tradingPointId) || tradingPoints[0] || null;
 
   return (
     <div className="page">
@@ -597,6 +606,9 @@ export default function Menu() {
                     center={deliveryPoint ? [deliveryPoint.lat, deliveryPoint.lng] : cityConfig.center}
                     zoom={deliveryPoint ? 14 : cityConfig.zoom}
                     onMapClick={handleMapClick}
+                    origin={selectedTradingPoint?.lat != null && selectedTradingPoint?.lng != null
+                      ? { lat: selectedTradingPoint.lat, lng: selectedTradingPoint.lng }
+                      : null}
                     destination={deliveryPoint}
                     route={routeMeta?.coordinates}
                     height={260}
@@ -617,7 +629,6 @@ export default function Menu() {
                 <div className="form-group">
                   <label>Точка отправки</label>
                   <select value={tradingPointId} onChange={e => setTradingPointId(e.target.value)}>
-                    <option value="">— Выберите точку —</option>
                     {tradingPoints.map(p => (
                       <option key={p.id} value={p.id}>{p.name} — {p.address}</option>
                     ))}

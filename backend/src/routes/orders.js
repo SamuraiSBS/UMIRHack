@@ -24,6 +24,21 @@ router.post('/', verifyToken, requireRole('CUSTOMER'), async (req, res) => {
       return res.status(400).json({ error: 'Some products not found in this business' });
     }
 
+    let tradingPoint = null;
+    if (tradingPointId) {
+      tradingPoint = await prisma.tradingPoint.findUnique({
+        where: { id: tradingPointId },
+      });
+      if (!tradingPoint || tradingPoint.businessId !== businessId) {
+        return res.status(400).json({ error: 'Trading point not found in this business' });
+      }
+    } else {
+      tradingPoint = await prisma.tradingPoint.findFirst({
+        where: { businessId },
+        orderBy: { name: 'asc' },
+      });
+    }
+
     const productMap = Object.fromEntries(products.map((p) => [p.id, p]));
     const totalPrice = items.reduce((sum, item) => sum + productMap[item.productId].price * item.quantity, 0);
 
@@ -42,12 +57,15 @@ router.post('/', verifyToken, requireRole('CUSTOMER'), async (req, res) => {
         distanceKm: km,
         deliveryFee,
         customerId: req.user.id,
-        ...(tradingPointId && { tradingPointId }),
+        ...(tradingPoint?.id && { tradingPointId: tradingPoint.id }),
         items: {
           create: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
         },
       },
-      include: { items: { include: { product: true } }, tradingPoint: { select: { name: true, address: true } } },
+      include: {
+        items: { include: { product: true } },
+        tradingPoint: { select: { id: true, name: true, address: true, lat: true, lng: true } },
+      },
     });
 
     res.status(201).json(order);
@@ -66,6 +84,7 @@ router.get('/my', verifyToken, requireRole('CUSTOMER'), async (req, res) => {
         items: { include: { product: true } },
         business: { select: { name: true } },
         courier: { select: { name: true, email: true } },
+        tradingPoint: { select: { id: true, name: true, address: true, lat: true, lng: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -105,7 +124,7 @@ router.get('/available', verifyToken, requireRole('COURIER'), async (req, res) =
         // Only show item count and total — not full address until accepted
         items: { select: { quantity: true, product: { select: { name: true } } } },
         // Pickup point address is shown before accepting
-        tradingPoint: { select: { name: true, address: true } },
+        tradingPoint: { select: { id: true, name: true, address: true, lat: true, lng: true } },
       },
       orderBy: { createdAt: 'asc' },
     });
@@ -148,7 +167,7 @@ router.post('/:id/accept', verifyToken, requireRole('COURIER'), async (req, res)
         items: { include: { product: true } },
         customer: { select: { name: true, email: true } },
         business: { select: { name: true } },
-        tradingPoint: { select: { name: true, address: true } },
+        tradingPoint: { select: { id: true, name: true, address: true, lat: true, lng: true } },
       },
     });
 
@@ -211,7 +230,7 @@ router.patch('/:id/status', verifyToken, requireRole('COURIER'), async (req, res
         items: { include: { product: { select: { name: true, price: true } } } },
         customer: { select: { name: true, email: true } },
         business: { select: { id: true, name: true } },
-        tradingPoint: { select: { name: true, address: true } },
+        tradingPoint: { select: { id: true, name: true, address: true, lat: true, lng: true } },
       },
     });
 

@@ -21,9 +21,13 @@ const migrations = [
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "address" TEXT NOT NULL,
+    "lat" DOUBLE PRECISION,
+    "lng" DOUBLE PRECISION,
     "businessId" TEXT NOT NULL,
     CONSTRAINT "TradingPoint_pkey" PRIMARY KEY ("id")
   )`,
+  `ALTER TABLE "TradingPoint" ADD COLUMN IF NOT EXISTS "lat" DOUBLE PRECISION`,
+  `ALTER TABLE "TradingPoint" ADD COLUMN IF NOT EXISTS "lng" DOUBLE PRECISION`,
   `DO $$ BEGIN
     IF NOT EXISTS (
       SELECT 1 FROM information_schema.table_constraints
