@@ -98,14 +98,17 @@ function pointsEqual(first, second) {
   return first.lat === second.lat && first.lng === second.lng;
 }
 
-function buildRouteUrl(from, to) {
-  if (!to) return null;
-
-  if (from) {
-    return `https://yandex.ru/maps/?rtext=${from.lat},${from.lng}~${to.lat},${to.lng}&rtt=auto`;
+function buildRouteUrl(from, to, fallbackAddress) {
+  if (to) {
+    if (from) {
+      return `https://yandex.ru/maps/?rtext=${from.lat},${from.lng}~${to.lat},${to.lng}&rtt=auto`;
+    }
+    return `https://yandex.ru/maps/?ll=${to.lng},${to.lat}&z=16`;
   }
-
-  return `https://yandex.ru/maps/?ll=${to.lng},${to.lat}&z=16`;
+  if (fallbackAddress) {
+    return `https://yandex.ru/maps/?text=${encodeURIComponent(fallbackAddress)}`;
+  }
+  return null;
 }
 
 export default function ActiveOrder() {
@@ -313,10 +316,13 @@ export default function ActiveOrder() {
   function openExternalRoute() {
     const routeStart = getRouteStart(order, courierPosition);
     const routeTarget = getRouteTarget(order);
-    const routeUrl = buildRouteUrl(routeStart, routeTarget);
+    const fallbackAddress = order?.status === 'ACCEPTED'
+      ? (order?.tradingPoint?.address || order?.business?.name || '')
+      : (order?.address || '');
+    const routeUrl = buildRouteUrl(routeStart, routeTarget, fallbackAddress);
 
     if (!routeUrl) {
-      setError('Не удалось построить маршрут: нет координат точки назначения.');
+      setError('Не удалось построить маршрут: нет координат и адреса назначения.');
       return;
     }
 
@@ -399,8 +405,8 @@ export default function ActiveOrder() {
           <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '2px' }}>Адрес клиента</p>
           <p style={{ fontWeight: 600, marginBottom: '12px', color: '#111827' }}>{order.address}</p>
 
-          {routeTarget && (
-            <div style={{ marginBottom: '14px' }}>
+          <div style={{ marginBottom: '14px' }}>
+            {routeTarget && (
               <div className="tracking-summary" style={{ marginBottom: '10px' }}>
                 <div>
                   <strong>{routeTitle}</strong>
@@ -413,15 +419,17 @@ export default function ActiveOrder() {
                   </div>
                 )}
               </div>
+            )}
 
-              <button
-                className="btn-outline w-full"
-                style={{ marginBottom: '10px' }}
-                onClick={openExternalRoute}
-              >
-                Построить маршрут
-              </button>
+            <button
+              className="btn-outline w-full"
+              style={{ marginBottom: routeTarget ? '10px' : '0' }}
+              onClick={openExternalRoute}
+            >
+              Построить маршрут
+            </button>
 
+            {routeTarget && (
               <LeafletMap
                 center={routeCenter}
                 zoom={13}
@@ -434,8 +442,8 @@ export default function ActiveOrder() {
                 destinationPopup={routeStage === 'pickup' ? 'Точка выдачи' : 'Клиент'}
                 height={300}
               />
-            </div>
-          )}
+            )}
+          </div>
 
           <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '2px' }}>Клиент</p>
           <p style={{ marginBottom: '12px' }}>{customerName}</p>

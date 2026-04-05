@@ -14,11 +14,11 @@ export default function AvailableOrders() {
   function load() {
     return Promise.all([
       api.get('/orders/available'),
-      api.get('/courier/shift'),
+      api.get('/courier/shift').catch(() => null),
     ])
       .then(([ordersRes, shiftRes]) => {
         setOrders(asArray(ordersRes.data));
-        setShiftCity(shiftRes.data.city || '');
+        if (shiftRes) setShiftCity(shiftRes.data.city || '');
       })
       .catch(err => setError(err.response?.data?.error || 'Ошибка загрузки'))
       .finally(() => setLoading(false));
