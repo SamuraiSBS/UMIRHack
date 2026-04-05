@@ -1,5 +1,6 @@
 package com.umirhack.courier.ui.orders
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
@@ -184,10 +185,9 @@ fun ActiveOrderScreen(
                                         destinationLng = focusOrder.deliveryLng,
                                     ),
                                 )
-                                val activity = intent.resolveActivity(context.packageManager)
-                                if (activity != null) {
+                                try {
                                     context.startActivity(intent)
-                                } else {
+                                } catch (e: ActivityNotFoundException) {
                                     Toast.makeText(
                                         context,
                                         "Не найдено приложение для открытия маршрута",
