@@ -18,7 +18,9 @@ val courierApiBaseUrl = (
     project.findProperty("COURIER_API_BASE_URL") as String?
         ?: localProperties.getProperty("courierApiBaseUrl")
         ?: "https://umirhack-backend.onrender.com/api/"
-).trim()
+).trim().let { baseUrl ->
+    if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
+}
 
 android {
     namespace = "com.umirhack.courier"
