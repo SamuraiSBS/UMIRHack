@@ -218,6 +218,15 @@ select option { background: var(--surface); color: var(--text); }
   align-items: center;
   gap: 8px;
 }
+
+.nav-username {
+  font-size: 13px;
+  color: #9E9E9E;
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .nav-hamburger {
   display: none;
   background: transparent;
@@ -270,9 +279,10 @@ select option { background: var(--surface); color: var(--text); }
   .nav-links { display: none; }
   .nav-hamburger { display: block; }
   .nav-username { display: none; }
+  .nav-logout { display: none; }
 
   .page {
-    padding: 1rem 0.875rem;
+    padding: 1rem 0.75rem;
   }
 
   .page-title {
@@ -287,6 +297,27 @@ select option { background: var(--surface); color: var(--text); }
 
   .card {
     padding: 1rem;
+  }
+
+  /* Кнопки-фильтры — переносятся на новую строку */
+  .filter-tabs {
+    flex-wrap: wrap;
+  }
+
+  /* Таблицы: горизонтальный скролл */
+  .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Карточки с flex-row — переходят в колонку */
+  .mobile-col {
+    flex-direction: column !important;
+  }
+
+  /* Увеличиваем touch-targets для кнопок */
+  button {
+    min-height: 40px;
   }
 }
 

@@ -154,14 +154,10 @@ export default function Navbar() {
               }}>
                 {(user.name || user.email || '?')[0].toUpperCase()}
               </div>
-              <span style={{
-                fontSize: '13px', color: '#9E9E9E',
-                maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                display: 'var(--name-display, block)',
-              }} className="nav-username">
+              <span className="nav-username">
                 {user.name || user.email}
               </span>
-              <button onClick={handleLogout} style={{
+              <button onClick={handleLogout} className="nav-logout" style={{
                 background: 'transparent', color: '#9E9E9E',
                 border: '1px solid #3A3A3A', borderRadius: '8px',
                 padding: '6px 14px', fontSize: '13px', fontWeight: 500, cursor: 'pointer',
