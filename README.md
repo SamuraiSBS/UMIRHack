@@ -1,21 +1,20 @@
-# Агрегатор службы доставки
+# Флагман — агрегатор доставки
 
-MVP-система доставки еды: бизнес-кабинет, интерфейс курьера и витрина для покупателей.
+Платформа доставки еды с четырьмя ролями: **покупатель**, **курьер**, **бизнес**, **администратор**.
 
-Production:
+**Production:**
+- Frontend: [umirhack-teronit.netlify.app](https://umirhack-teronit.netlify.app/)
+- Backend: [umirhack-backend.onrender.com](https://umirhack-backend.onrender.com)
 
-- Site: `https://umirhack-teronit.netlify.app/`
-- Backend: `https://umirhack-backend.onrender.com`
-
-## Технологии
+## Стек
 
 | Слой        | Технология        |
 | ----------- | ----------------- |
 | Backend     | Node.js + Express |
 | БД          | PostgreSQL        |
 | ORM         | Prisma            |
-| Frontend    | React + Vite      |
-| Авторизация | JWT               |
+| Frontend    | React 18 + Vite   |
+| Авторизация | JWT (7 дней)      |
 
 ## Структура проекта
 
@@ -23,13 +22,14 @@ Production:
 /
 ├── backend/
 │   ├── src/
-│   │   ├── index.js            # Entry point
-│   │   ├── middleware/auth.js  # JWT verification
+│   │   ├── index.js              # Entry point, монтирует роутеры
+│   │   ├── middleware/auth.js    # verifyToken + requireRole
 │   │   └── routes/
-│   │       ├── auth.js         # POST /register, /login
-│   │       ├── business.js     # GET/POST /business, /products
-│   │       ├── orders.js       # GET/POST /orders
-│   │       └── courier.js      # GET/POST /courier/shift
+│   │       ├── auth.js           # /api/auth/*
+│   │       ├── business.js       # /api/business/*, /api/products
+│   │       ├── orders.js         # /api/orders/*
+│   │       ├── courier.js        # /api/courier/*
+│   │       └── admin.js          # /api/admin/*
 │   ├── prisma/
 │   │   ├── schema.prisma
 │   │   └── seed.js
@@ -37,82 +37,63 @@ Production:
 │   └── .env.example
 ├── frontend/
 │   └── src/
-│       ├── pages/
-│       │   ├── auth/           # Login, Register
-│       │   ├── customer/       # BusinessList, Menu, MyOrders
-│       │   ├── courier/        # ShiftControl, AvailableOrders, ActiveOrder
-│       │   └── business/       # Dashboard, Products
+│       ├── api/client.js         # Axios + Bearer token
 │       ├── contexts/AuthContext.jsx
-│       ├── api/client.js
-│       └── components/
+│       ├── components/ProtectedRoute.jsx
+│       ├── App.jsx               # Role-based routing
+│       └── pages/
+│           ├── auth/             # Login, Register
+│           ├── customer/         # BusinessList, Menu, MyOrders
+│           ├── courier/          # ShiftControl, AvailableOrders, ActiveOrder
+│           ├── business/         # Dashboard, Products, BusinessSettings
+│           └── admin/            # AdminDashboard, Users, Businesses, Orders
 └── docker-compose.yml
 ```
 
 ## Быстрый старт (Docker)
 
 ```bash
-# Поднять БД + бэкенд + фронтенд
 docker compose up -d --build
 ```
 
-Бэкенд при старте сам:
+При старте бэкенд автоматически:
+1. Дожидается готовности Postgres
+2. Применяет миграции (`prisma db push`)
+3. Заполняет демо-данные (`node prisma/seed.js`)
 
-- дожидается готовности Postgres
-- создаёт таблицы через `prisma db push`
-- заполняет демо-данные через `node prisma/seed.js`
+| Сервис   | URL                         |
+| -------- | --------------------------- |
+| Frontend | http://localhost:5173       |
+| Backend  | http://localhost:3001/health |
 
-Фронтенд поднимается в отдельном контейнере Vite на `http://localhost:5173`.
-
-Если нужно повторно перезаполнить демо-данные вручную, можно выполнить:
+Повторное заполнение демо-данных:
 
 ```bash
 docker compose exec backend node prisma/seed.js
 ```
 
-Открыть:
-
-- Frontend: http://localhost:5173
-- Backend health: http://localhost:3001/health
-
 ## Локальный запуск (без Docker)
 
-### 1. База данных
-
-Нужен PostgreSQL. Создайте БД `delivery`.
-
-### 2. Backend
+### Backend
 
 ```bash
 cd backend
-cp .env.example .env
-# Укажите DATABASE_URL, DIRECT_URL и JWT_SECRET в .env
-
+cp .env.example .env          # задать DATABASE_URL и JWT_SECRET
 npm install
-npx prisma migrate dev --name init
-node prisma/seed.js
-npm run dev
+npm run db:migrate
+npm run db:seed
+npm run dev                   # порт 3001, hot reload
 ```
 
-Backend запустится на http://localhost:3001
-
-Пример production-подключения к Supabase:
-
-```env
-DATABASE_URL="postgresql://postgres.xvjrmochaeqswdwusmob:[YOUR-PASSWORD]@aws-1-eu-central-1.pooler.supabase.com:6543/postgres?pgbouncer=true"
-DIRECT_URL="postgresql://postgres.xvjrmochaeqswdwusmob:[YOUR-PASSWORD]@aws-1-eu-central-1.pooler.supabase.com:5432/postgres"
-```
-
-### 3. Frontend
+### Frontend
 
 ```bash
 cd frontend
 npm install
-npm run dev
+npm run dev                   # порт 5173, /api → localhost:3001
 ```
 
-Фронтенд запустится на http://localhost:5173 (запросы к API проксируются на :3001).
-
-## Demo аккаунты (после seed)
+## Demo-аккаунты (после seed)
 
 | Роль           | Email             | Пароль  |
 | -------------- | ----------------- | ------- |
@@ -121,25 +102,62 @@ npm run dev
 | Курьер         | courier@demo.com  | demo123 |
 | Покупатель     | customer@demo.com | demo123 |
 
+> Аккаунты ADMIN создаются только через БД или `prisma/seed.js`.
+
+## Статусы заказа
+
+```
+CREATED → ACCEPTED → DELIVERING → DONE
+CREATED → CANCELLED  (только покупатель, пока статус CREATED)
+```
+
+Курьер может принять заказ только при активной смене и отсутствии другого активного заказа.
+
 ## API
 
-| Метод  | Endpoint                   | Роль     | Описание          |
-| ------ | -------------------------- | -------- | ----------------- |
-| POST   | /api/auth/register         | —        | Регистрация       |
-| POST   | /api/auth/login            | —        | Вход              |
-| GET    | /api/business              | —        | Список заведений  |
-| POST   | /api/business              | BUSINESS | Создать заведение |
-| GET    | /api/business/my           | BUSINESS | Своё заведение    |
-| GET    | /api/business/my/orders    | BUSINESS | Заказы заведения  |
-| GET    | /api/business/:id/products | —        | Меню заведения    |
-| POST   | /api/products              | BUSINESS | Добавить позицию  |
-| DELETE | /api/products/:id          | BUSINESS | Удалить позицию   |
-| POST   | /api/orders                | CUSTOMER | Создать заказ     |
-| GET    | /api/orders/my             | CUSTOMER | Мои заказы        |
-| GET    | /api/orders/available      | COURIER  | Доступные заказы  |
-| POST   | /api/orders/:id/accept     | COURIER  | Принять заказ     |
-| PATCH  | /api/orders/:id/status     | COURIER  | Обновить статус   |
-| GET    | /api/courier/shift         | COURIER  | Статус смены      |
-| POST   | /api/courier/shift/start   | COURIER  | Начать смену      |
-| POST   | /api/courier/shift/stop    | COURIER  | Завершить смену   |
-| GET    | /api/courier/orders        | COURIER  | Мои доставки      |
+### Публичные
+
+| Метод | Endpoint                    | Описание         |
+| ----- | --------------------------- | ---------------- |
+| POST  | /api/auth/register          | Регистрация      |
+| POST  | /api/auth/login             | Вход             |
+| GET   | /api/business               | Список заведений |
+| GET   | /api/business/:id/products  | Меню заведения   |
+
+### BUSINESS
+
+| Метод          | Endpoint                        | Описание               |
+| -------------- | ------------------------------- | ---------------------- |
+| GET/POST/PATCH | /api/business/my                | Своё заведение         |
+| GET/POST/DELETE| /api/business/my/trading-points | Торговые точки         |
+| GET            | /api/business/my/orders         | Входящие заказы        |
+| POST/PATCH/DELETE | /api/products               | Управление позициями   |
+
+### CUSTOMER
+
+| Метод | Endpoint               | Описание       |
+| ----- | ---------------------- | -------------- |
+| POST  | /api/orders            | Создать заказ  |
+| GET   | /api/orders/my         | Мои заказы     |
+| POST  | /api/orders/:id/cancel | Отменить заказ |
+
+### COURIER
+
+| Метод | Endpoint                  | Описание            |
+| ----- | ------------------------- | ------------------- |
+| POST  | /api/courier/shift/start  | Начать смену        |
+| POST  | /api/courier/shift/stop   | Завершить смену     |
+| GET   | /api/orders/available     | Доступные заказы    |
+| POST  | /api/orders/:id/accept    | Принять заказ       |
+| PATCH | /api/orders/:id/status    | Обновить статус     |
+| GET   | /api/courier/orders       | Мои доставки        |
+
+### ADMIN
+
+| Метод | Endpoint               | Описание                     |
+| ----- | ---------------------- | ---------------------------- |
+| GET   | /api/admin/stats       | Статистика                   |
+| GET   | /api/admin/users       | Список пользователей         |
+| PATCH | /api/admin/users/:id/block | Блокировка пользователя  |
+| GET   | /api/admin/businesses  | Список бизнесов              |
+| GET   | /api/admin/orders      | Все заказы                   |
