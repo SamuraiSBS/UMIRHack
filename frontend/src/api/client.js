@@ -1,7 +1,11 @@
 import axios from 'axios';
 
+const apiBaseURL =
+  import.meta.env.VITE_API_BASE_URL ||
+  (import.meta.env.DEV ? '/api' : 'https://umirhack-backend.onrender.com/api');
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: apiBaseURL,
 });
 
 // Attach JWT token to every request if present
