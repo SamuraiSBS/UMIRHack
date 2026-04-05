@@ -52,6 +52,28 @@ private fun OrderDto.mergeWithFallback(fallback: OrderDto): OrderDto =
         } ?: fallback.customer,
     )
 
+private fun mergeOrderLists(
+    primary: List<OrderDto>,
+    fallback: List<OrderDto>,
+): List<OrderDto> {
+    val fallbackById = fallback.associateBy { it.id }
+    val merged = LinkedHashMap<String, OrderDto>()
+
+    primary.forEach { order ->
+        merged[order.id] = fallbackById[order.id]?.let { previous ->
+            order.mergeWithFallback(previous)
+        } ?: order
+    }
+
+    fallback.forEach { order ->
+        if (order.id !in merged) {
+            merged[order.id] = order
+        }
+    }
+
+    return merged.values.toList()
+}
+
 data class CourierUiState(
     val isLoading: Boolean = false,
     val isShiftUpdating: Boolean = false,
@@ -100,9 +122,26 @@ class CourierViewModel(
                 Triple(shift, orders, available)
             }.onSuccess { (shift, orders, available) ->
                 val activeOrder = orders.firstOrNull { it.status in ACTIVE_STATUSES }
-                val completed = orders.filter { it.status == "DONE" }
+                val fetchedCompleted = orders.filter { it.status == "DONE" }
                 _uiState.update {
-                    val recentCompletedOrder = if (activeOrder == null) it.recentCompletedOrder else null
+                    val localCompleted = buildList {
+                        addAll(it.completedOrders)
+                        it.recentCompletedOrder?.takeIf { order -> order.status == "DONE" }?.let(::add)
+                    }
+                    val completed = mergeOrderLists(
+                        primary = fetchedCompleted,
+                        fallback = localCompleted,
+                    )
+                    val recentCompletedOrder = when {
+                        activeOrder != null -> null
+                        it.recentCompletedOrder != null -> {
+                            mergeOrderLists(
+                                primary = fetchedCompleted,
+                                fallback = listOf(it.recentCompletedOrder),
+                            ).firstOrNull()
+                        }
+                        else -> completed.firstOrNull()
+                    }
                     it.copy(
                         isLoading = false,
                         shiftActive = shift.isActive,
@@ -111,7 +150,10 @@ class CourierViewModel(
                         activeOrder = activeOrder,
                         recentCompletedOrder = recentCompletedOrder,
                         completedOrders = completed,
-                        completedToday = completed.filter { order -> isToday(order.createdAt) },
+                        completedToday = mergeOrderLists(
+                            primary = completed.filter { order -> isToday(order.createdAt) },
+                            fallback = it.completedToday,
+                        ),
                         lastUpdatedAtMillis = System.currentTimeMillis(),
                         errorMessage = null,
                     )
