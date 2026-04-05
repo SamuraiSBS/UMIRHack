@@ -210,7 +210,7 @@ fun DashboardScreen(
             item {
                 SectionCard {
                     MerchantBanner(
-                        title = order.business.name,
+                        title = order.business?.name ?: "Магазин не указан",
                         subtitle = order.tradingPoint?.let { "${it.name} • ${it.address}" } ?: "Активный маршрут по заказу",
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -240,7 +240,7 @@ fun DashboardScreen(
             items(courierState.completedToday, key = { it.id }) { order ->
                 SectionCard {
                     MerchantBanner(
-                        title = order.business.name,
+                        title = order.business?.name ?: "Магазин не указан",
                         subtitle = order.address.orEmpty(),
                     )
                     MetricRow(label = "Доход", value = money(order.deliveryFee))

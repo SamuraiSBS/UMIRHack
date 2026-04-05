@@ -1,28 +1,36 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/client';
+import LeafletMap from '../../components/LeafletMap';
+import { CITY_OPTIONS, getCityConfig } from '../../lib/cities';
+import { fetchRoute, geocodeAddress, haversineKm, reverseGeocode } from '../../lib/map';
 
 export default function Cart() {
   const navigate = useNavigate();
+  const [city, setCity] = useState(() => getCityConfig(localStorage.getItem('delivery_city') || '').value);
 
-  const [cartData, setCartData] = useState(null); // { businessId, businessName, products, cart, tradingPoints }
+  const [cartData, setCartData] = useState(null); // { businessId, business, products, cart, tradingPoints }
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [address, setAddress] = useState('');
+  const [addressDetails, setAddressDetails] = useState('');
+  const [deliveryPoint, setDeliveryPoint] = useState(null);
   const [tradingPointId, setTradingPointId] = useState('');
   const [distanceKm, setDistanceKm] = useState('');
+  const [routeMeta, setRouteMeta] = useState(null);
   const [ordering, setOrdering] = useState(false);
+  const [resolvingPoint, setResolvingPoint] = useState(false);
+
+  const cityConfig = useMemo(() => getCityConfig(city), [city]);
 
   useEffect(() => {
-    // Find cart_* keys in localStorage
-    const cartKeys = Object.keys(localStorage).filter(k => k.startsWith('cart_'));
+    const cartKeys = Object.keys(localStorage).filter((key) => key.startsWith('cart_'));
     if (cartKeys.length === 0) {
       setLoading(false);
       return;
     }
 
-    // Take the first non-empty cart
     let foundKey = null;
     let foundCart = {};
     for (const key of cartKeys) {
@@ -33,7 +41,9 @@ export default function Cart() {
           foundCart = parsed;
           break;
         }
-      } catch { /* skip */ }
+      } catch {
+        // skip invalid cart entries
+      }
     }
 
     if (!foundKey) {
@@ -48,9 +58,9 @@ export default function Cart() {
       setError('');
       try {
         const [biz, prods, points] = await Promise.all([
-          api.get(`/business/${businessId}`).then(r => r.data),
-          api.get(`/business/${businessId}/products`).then(r => r.data),
-          api.get(`/business/${businessId}/trading-points`).then(r => r.data).catch(() => []),
+          api.get(`/business/${businessId}`).then((r) => r.data),
+          api.get(`/business/${businessId}/products`).then((r) => r.data),
+          api.get(`/business/${businessId}/trading-points`).then((r) => r.data).catch(() => []),
         ]);
         setCartData({ businessId, business: biz, products: prods, cart: foundCart, tradingPoints: points });
       } catch (err) {
@@ -63,8 +73,98 @@ export default function Cart() {
     loadCart();
   }, []);
 
+  useEffect(() => {
+    localStorage.setItem('delivery_city', city);
+  }, [city]);
+
+  useEffect(() => {
+    if (!tradingPointId && cartData?.tradingPoints?.length > 0) {
+      setTradingPointId(cartData.tradingPoints[0].id);
+    }
+  }, [cartData?.tradingPoints, tradingPointId]);
+
+  useEffect(() => {
+    setDeliveryPoint(null);
+    setAddress('');
+    setAddressDetails('');
+    setDistanceKm('');
+    setRouteMeta(null);
+  }, [city]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function buildRoute() {
+      if (!deliveryPoint || !cartData?.business) {
+        setDistanceKm('');
+        setRouteMeta(null);
+        return;
+      }
+
+      const tradingPoints = cartData.tradingPoints || [];
+      const pickupSource = tradingPoints.find((point) => point.id === tradingPointId) || tradingPoints[0] || null;
+      const pickupFromPoint = pickupSource?.lat != null && pickupSource?.lng != null
+        ? { lat: pickupSource.lat, lng: pickupSource.lng, label: pickupSource.address }
+        : null;
+      const pickupQuery = pickupSource?.address || `${cartData.business.name}, ${cartData.business.description || ''}`;
+
+      try {
+        const pickup = pickupFromPoint || await geocodeAddress(pickupQuery, city);
+        if (cancelled || !pickup) {
+          const fallbackDistance = haversineKm(
+            { lat: cityConfig.center[0], lng: cityConfig.center[1] },
+            deliveryPoint
+          );
+          setDistanceKm(fallbackDistance.toFixed(1));
+          setRouteMeta(null);
+          return;
+        }
+
+        const route = await fetchRoute(pickup, deliveryPoint);
+        if (cancelled) return;
+
+        if (route) {
+          setDistanceKm(route.distanceKm.toFixed(1));
+          setRouteMeta(route);
+        } else {
+          const fallbackDistance = haversineKm(pickup, deliveryPoint);
+          setDistanceKm(fallbackDistance.toFixed(1));
+          setRouteMeta(null);
+        }
+      } catch {
+        if (cancelled) return;
+        const fallbackDistance = haversineKm(
+          { lat: cityConfig.center[0], lng: cityConfig.center[1] },
+          deliveryPoint
+        );
+        setDistanceKm(fallbackDistance.toFixed(1));
+        setRouteMeta(null);
+      }
+    }
+
+    buildRoute();
+    return () => {
+      cancelled = true;
+    };
+  }, [cartData, city, cityConfig.center, deliveryPoint, tradingPointId]);
+
+  async function handleMapClick(point) {
+    setError('');
+    setResolvingPoint(true);
+    setDeliveryPoint(point);
+    try {
+      const result = await reverseGeocode(point.lat, point.lng);
+      const baseAddress = result.display_name || `${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}`;
+      setAddress(baseAddress);
+    } catch {
+      setAddress(`${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}`);
+    } finally {
+      setResolvingPoint(false);
+    }
+  }
+
   function changeQty(productId, delta) {
-    setCartData(prev => {
+    setCartData((prev) => {
       if (!prev) return prev;
       const next = { ...prev.cart };
       const q = (next[productId] || 0) + delta;
@@ -79,7 +179,7 @@ export default function Cart() {
   const cartItems = cartData
     ? Object.entries(cartData.cart)
         .map(([productId, quantity]) => {
-          const product = cartData.products.find(p => p.id === productId);
+          const product = cartData.products.find((p) => p.id === productId);
           return product ? { productId, quantity, product } : null;
         })
         .filter(Boolean)
@@ -88,20 +188,28 @@ export default function Cart() {
   const total = cartItems.reduce((sum, { quantity, product }) => sum + product.price * quantity, 0);
   const cartCount = cartItems.reduce((sum, { quantity }) => sum + quantity, 0);
   const deliveryCost = distanceKm ? Math.max(50, Math.round(50 + Number(distanceKm) * 15)) : 0;
+  const selectedTradingPoint = cartData?.tradingPoints?.find((point) => point.id === tradingPointId) || cartData?.tradingPoints?.[0] || null;
 
   async function handleOrder(e) {
     e.preventDefault();
+    if (!city.trim()) { setError('Выберите город'); return; }
+    if (!deliveryPoint) { setError('Укажите точку доставки на карте'); return; }
     if (!address.trim()) { setError('Укажите адрес доставки'); return; }
     if (cartItems.length === 0) { setError('Корзина пуста'); return; }
 
     setError('');
     setOrdering(true);
     try {
+      const fullAddress = [city, address.trim(), addressDetails.trim()].filter(Boolean).join(', ');
+      const resolvedTradingPointId = tradingPointId || cartData.tradingPoints?.[0]?.id;
       await api.post('/orders', {
         businessId: cartData.businessId,
-        address: address.trim(),
+        city,
+        address: fullAddress,
+        deliveryLat: deliveryPoint.lat,
+        deliveryLng: deliveryPoint.lng,
         items: cartItems.map(({ productId, quantity }) => ({ productId, quantity })),
-        ...(tradingPointId && { tradingPointId }),
+        ...(resolvedTradingPointId && { tradingPointId: resolvedTradingPointId }),
         ...(distanceKm && { distanceKm: Number(distanceKm) }),
       });
       setSuccess('Заказ оформлен! Переходим к вашим заказам...');
@@ -139,7 +247,6 @@ export default function Cart() {
 
       <h1 className="page-title">Корзина</h1>
 
-      {/* Business name */}
       <div style={{
         background: '#2A2A2A', borderRadius: '12px',
         padding: '12px 16px', marginBottom: '20px',
@@ -152,7 +259,6 @@ export default function Cart() {
         </div>
       </div>
 
-      {/* Cart items */}
       <div style={{ background: '#2A2A2A', borderRadius: '16px', padding: '16px', marginBottom: '20px' }}>
         <h3 style={{ color: '#FFFFFF', fontWeight: 700, marginBottom: '16px', fontSize: '16px' }}>
           Состав заказа
@@ -200,7 +306,6 @@ export default function Cart() {
         </div>
       </div>
 
-      {/* Order form */}
       <div style={{ background: '#2A2A2A', borderRadius: '16px', padding: '20px', marginBottom: '20px' }}>
         <h3 style={{ color: '#FFFFFF', fontWeight: 700, marginBottom: '16px', fontSize: '16px' }}>
           Оформление заказа
@@ -215,22 +320,65 @@ export default function Cart() {
 
         <form onSubmit={handleOrder}>
           <div className="form-group">
+            <label>Город</label>
+            <select value={city} onChange={(e) => setCity(e.target.value)}>
+              {CITY_OPTIONS.map((item) => (
+                <option key={item.value} value={item.value}>{item.value}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
             <label>Адрес доставки</label>
             <input
               value={address}
-              onChange={e => setAddress(e.target.value)}
+              onChange={(e) => setAddress(e.target.value)}
               placeholder="ул. Пушкина, д. 1, кв. 10"
               required
             />
           </div>
 
+          <div className="form-group">
+            <label>Комментарий к адресу</label>
+            <input
+              value={addressDetails}
+              onChange={(e) => setAddressDetails(e.target.value)}
+              placeholder="подъезд, этаж, квартира"
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Точка на карте</label>
+            <div style={{ marginBottom: '10px' }}>
+              <LeafletMap
+                center={deliveryPoint ? [deliveryPoint.lat, deliveryPoint.lng] : cityConfig.center}
+                zoom={deliveryPoint ? 14 : cityConfig.zoom}
+                onMapClick={handleMapClick}
+                origin={selectedTradingPoint?.lat != null && selectedTradingPoint?.lng != null
+                  ? { lat: selectedTradingPoint.lat, lng: selectedTradingPoint.lng }
+                  : null}
+                destination={deliveryPoint}
+                route={routeMeta?.coordinates}
+                height={260}
+              />
+            </div>
+            <p style={{ fontSize: '13px', color: '#9E9E9E' }}>
+              Нажмите на карту, чтобы указать точку доставки.
+              {resolvingPoint ? ' Определяем адрес...' : ''}
+            </p>
+            {routeMeta && (
+              <p style={{ fontSize: '13px', color: '#9E9E9E', marginTop: '6px' }}>
+                Примерное время в пути: {Math.round(routeMeta.durationMin)} мин
+              </p>
+            )}
+          </div>
+
           {cartData.tradingPoints.length > 0 && (
             <div className="form-group">
               <label>Точка отправки</label>
-              <select value={tradingPointId} onChange={e => setTradingPointId(e.target.value)}>
-                <option value="">— Выберите точку —</option>
-                {cartData.tradingPoints.map(p => (
-                  <option key={p.id} value={p.id}>{p.name} — {p.address}</option>
+              <select value={tradingPointId} onChange={(e) => setTradingPointId(e.target.value)}>
+                {cartData.tradingPoints.map((point) => (
+                  <option key={point.id} value={point.id}>{point.name} — {point.address}</option>
                 ))}
               </select>
             </div>
@@ -239,9 +387,11 @@ export default function Cart() {
           <div className="form-group">
             <label>Расстояние, км</label>
             <input
-              type="number" min="0" step="0.1"
+              type="number"
+              min="0"
+              step="0.1"
               value={distanceKm}
-              onChange={e => setDistanceKm(e.target.value)}
+              onChange={(e) => setDistanceKm(e.target.value)}
               placeholder="например 3.5"
             />
           </div>
