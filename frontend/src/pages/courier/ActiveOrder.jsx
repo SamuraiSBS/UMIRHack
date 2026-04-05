@@ -326,7 +326,7 @@ export default function ActiveOrder() {
       return;
     }
 
-    window.open(routeUrl, '_blank', 'noopener,noreferrer');
+    window.location.href = routeUrl;
   }
 
   if (loading) return <div className="page"><p>Загрузка...</p></div>;
