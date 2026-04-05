@@ -226,17 +226,12 @@ export default function BusinessSettings() {
               <div key={p.id} className="card" style={{ padding: '12px' }}>
                 {editingPointId === p.id ? (
                   <div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
-                      <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label>Название</label>
-                        <input value={editPointForm.name} onChange={(e) => setEditPointForm((f) => ({ ...f, name: e.target.value }))} />
-                      </div>
-                      <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label>Адрес</label>
-                        <input value={editPointForm.address} onChange={(e) => setEditPointForm((f) => ({ ...f, address: e.target.value }))} />
-                      </div>
+                    <div className="form-group">
+                      <label>Название</label>
+                      <input value={editPointForm.name} onChange={(e) => setEditPointForm((f) => ({ ...f, name: e.target.value }))} />
                     </div>
-                    <div style={{ marginBottom: '10px' }}>
+                    <div className="form-group">
+                      <label>Точка на карте</label>
                       <LeafletMap
                         center={resolveMapCenter(editPointMarker, resolveMapCenter(p, cityConfig.center))}
                         zoom={editPointMarker ? 15 : cityConfig.zoom}
@@ -245,7 +240,11 @@ export default function BusinessSettings() {
                         height={220}
                       />
                     </div>
-                    <p className="text-sm text-gray" style={{ marginBottom: '10px' }}>
+                    <div className="form-group">
+                      <label>Выбранный адрес</label>
+                      <input value={editPointForm.address} onChange={(e) => setEditPointForm((f) => ({ ...f, address: e.target.value }))} />
+                    </div>
+                    <p className="text-sm text-gray" style={{ marginBottom: '10px', marginTop: '-4px' }}>
                       Нажмите на карту, чтобы обновить точку бизнеса.
                       {resolvingEditPoint ? ' Обновляем адрес...' : ''}
                     </p>
@@ -280,17 +279,12 @@ export default function BusinessSettings() {
 
         <h3 style={{ fontSize: '14px', fontWeight: 700, marginBottom: '10px' }}>Добавить точку</h3>
         <form onSubmit={handleAddPoint}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label>Название</label>
-              <input value={pointForm.name} onChange={setPoint('name')} placeholder="Главный офис" required />
-            </div>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label>Адрес</label>
-              <input value={pointForm.address} onChange={setPoint('address')} placeholder="ул. Ленина, 1" required />
-            </div>
+          <div className="form-group">
+            <label>Название</label>
+            <input value={pointForm.name} onChange={setPoint('name')} placeholder="Главный офис" required />
           </div>
-          <div style={{ marginTop: '12px', marginBottom: '10px' }}>
+          <div className="form-group">
+            <label>Точка на карте</label>
             <LeafletMap
               center={resolveMapCenter(addPointMarker, cityConfig.center)}
               zoom={addPointMarker ? 15 : cityConfig.zoom}
@@ -299,7 +293,16 @@ export default function BusinessSettings() {
               height={240}
             />
           </div>
-          <p className="text-sm text-gray" style={{ marginBottom: '12px' }}>
+          <div className="form-group">
+            <label>Выбранный адрес</label>
+            <input
+              value={pointForm.address}
+              onChange={setPoint('address')}
+              placeholder="Нажмите на карту, чтобы выбрать точку"
+              required
+            />
+          </div>
+          <p className="text-sm text-gray" style={{ marginBottom: '12px', marginTop: '-4px' }}>
             Нажмите на карту, чтобы сохранить точное место бизнеса.
             {resolvingAddPoint ? ' Обновляем адрес...' : ''}
           </p>
