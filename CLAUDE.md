@@ -33,9 +33,12 @@ npm run dev           # Vite dev server with /api proxy → localhost:3001
 cd backend
 npm run db:generate   # regenerate Prisma client after schema changes
 npm run db:migrate    # create + apply a new migration
+npx prisma studio     # browser-based DB explorer (not in scripts, but works)
 ```
 
-npx prisma studio     # browser-based DB explorer (not in scripts, but works)
+### Docker (alternative)
+```bash
+docker-compose up     # starts PostgreSQL + backend + frontend together
 ```
 
 There are no lint or test scripts in either package.
@@ -49,9 +52,9 @@ Express app with JWT auth and Prisma ORM (PostgreSQL).
 - `middleware/auth.js` — `verifyToken` (JWT decode + DB block-check → `req.user`) and `requireRole(...roles)` factory
 - `routes/auth.js` — `POST /api/auth/register`, `POST /api/auth/login`
 - `routes/business.js` — mounted at `/api`; public business/product listing + BUSINESS-only CRUD for their own business, products, trading points, and orders
-- `routes/orders.js` — mounted at `/api/orders`; CUSTOMER creates/cancels orders; COURIER accepts and advances status (`CREATED → ACCEPTED → DELIVERING → DONE`)
 - `routes/orders.js` — mounted at `/api/orders`; CUSTOMER creates/cancels orders; COURIER accepts and advances status
 - `routes/courier.js` — shift start/stop and courier's accepted orders
+- `routes/addresses.js` — mounted at `/api/addresses`; CUSTOMER CRUD for saved delivery addresses
 - `routes/admin.js` — stats, full user/business/order listing, block toggles (ADMIN role only)
 
 **Auth flow**: JWT is signed on login/register with `{ id, email, role, name }`, expires in 7 days. Every protected request hits the DB to check `isBlocked`.
@@ -77,6 +80,7 @@ The accept endpoint uses `updateMany` on `status: 'CREATED'` for atomic race pro
 | POST | `/api/orders` | CUSTOMER | create order |
 | GET | `/api/orders/my` | CUSTOMER | own orders |
 | POST | `/api/orders/:id/cancel` | CUSTOMER | cancel CREATED order |
+| GET/POST/DELETE | `/api/addresses` | CUSTOMER | saved delivery addresses |
 | GET | `/api/orders/available` | COURIER | unaccepted orders (shift required) |
 | POST | `/api/orders/:id/accept` | COURIER | accept order (atomic) |
 | PATCH | `/api/orders/:id/status` | COURIER | advance to DELIVERING or DONE |
@@ -87,9 +91,13 @@ React 18 + React Router v6 + Axios.
 - `api/client.js` — axios instance with `baseURL: '/api'`; attaches `Authorization: Bearer <token>` from `localStorage`; clears token on 401
 - `contexts/AuthContext.jsx` — `useAuth()` hook; stores `token`/`user` in `localStorage`
 - `components/ProtectedRoute.jsx` — wraps routes with role check, redirects to `/login` if unauthenticated
-- `App.jsx` — role-based routing: `/shops*` (CUSTOMER), `/courier` (COURIER, shows download page), `/business*` (BUSINESS), `/admin*` (ADMIN)
-- `App.jsx` — role-based routing:
+- `components/LeafletMap.jsx` — Leaflet map component used for address picking/display
+- `lib/cities.js`, `lib/map.js` — city data and map utilities
+- `hooks/` — custom React hooks
 
+**Vite proxy**: all `/api` requests are proxied to `http://localhost:3001` (overridable via `VITE_API_PROXY_TARGET` env var).
+
+### Route layout
 | Path | Role | Component |
 |---|---|---|
 | `/shops`, `/shops/:id/menu`, `/orders` | CUSTOMER | BusinessList, Menu, MyOrders |
@@ -97,25 +105,17 @@ React 18 + React Router v6 + Axios.
 | `/business`, `/business/products`, `/business/settings` | BUSINESS | Dashboard, Products, BusinessSettings |
 | `/admin`, `/admin/users`, `/admin/businesses`, `/admin/orders` | ADMIN | AdminDashboard, AdminUsers, AdminBusinesses, AdminOrders |
 
-**Vite proxy**: all `/api` requests are proxied to `http://localhost:3001` (overridable via `VITE_API_PROXY_TARGET` env var).
-
 ### Data model (Prisma schema)
 | Model | Key fields |
 |---|---|
 | `User` | `role` (ADMIN/COURIER/CUSTOMER/BUSINESS), `isBlocked` |
-| `Business` | one-to-one with `User` (ownerId), has `products`, `orders`, `tradingPoints` |
-| `Product` | belongs to one `Business` |
-| `Order` | `status` enum, `customerId`, `courierId?`, `businessId` |
-| `OrderItem` | join of `Order` × `Product` with `quantity` |
-| `CourierShift` | one-to-one with `User` (courier), `isActive` |
-
-Courier can only accept an order if their shift `isActive`. The accept endpoint uses `updateMany` on `status: 'CREATED'` for atomic race protection.
 | `Business` | one-to-one with `User` (ownerId), has `products`, `orders`, `tradingPoints`, `isBlocked` (admin can block independently of user) |
 | `TradingPoint` | belongs to `Business`, has `name` and `address` |
 | `Product` | belongs to one `Business` |
 | `Order` | `status` enum, `customerId`, `courierId?`, `businessId`, `totalPrice` |
 | `OrderItem` | join of `Order` × `Product` with `quantity` |
 | `CourierShift` | one-to-one with `User` (courier), `isActive` |
+| `DeliveryAddress` | saved addresses for a CUSTOMER (`customerId`) |
 
 Note: `Product.id` in seed data is set to `${businessId}-${productName}` (custom string, not cuid).
 
