@@ -51,6 +51,12 @@ const migrations = [
     END IF;
   END $$`,
 
+  // Product table
+  `ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "imageUrl" TEXT`,
+  `ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "isAvailable" BOOLEAN DEFAULT TRUE`,
+  `ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "category" TEXT`,
+  `UPDATE "Product" SET "isAvailable" = TRUE WHERE "isAvailable" IS NULL`,
+
   // DeliveryAddress table
   `CREATE TABLE IF NOT EXISTS "DeliveryAddress" (
     "id" TEXT NOT NULL,

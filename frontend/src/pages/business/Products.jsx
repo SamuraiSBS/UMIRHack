@@ -3,6 +3,10 @@ import api from '../../api/client';
 
 const CATEGORIES = ['Горячее', 'Холодное', 'Закуски', 'Супы', 'Салаты', 'Напитки', 'Десерты', 'Соусы', 'Другое'];
 
+function isProductAvailable(product) {
+  return product.isAvailable !== false;
+}
+
 export default function Products() {
   const [business, setBusiness] = useState(null);
   const [products, setProducts] = useState([]);
@@ -111,7 +115,7 @@ export default function Products() {
 
   async function handleToggleAvailable(product) {
     try {
-      const res = await api.patch(`/products/${product.id}`, { isAvailable: !product.isAvailable });
+      const res = await api.patch(`/products/${product.id}`, { isAvailable: !isProductAvailable(product) });
       setProducts(prev => prev.map(p => p.id === product.id ? res.data : p));
     } catch (err) {
       setError('Ошибка изменения доступности');
@@ -247,7 +251,7 @@ export default function Products() {
                           {p.category}
                         </span>
                       )}
-                      {!p.isAvailable && (
+                      {!isProductAvailable(p) && (
                         <span style={{ fontSize: '11px', color: '#dc2626', fontWeight: 600, background: '#fee2e2', padding: '2px 6px', borderRadius: '4px' }}>
                           Нет в наличии
                         </span>
@@ -264,10 +268,10 @@ export default function Products() {
                     </button>
                     <button
                       onClick={() => handleToggleAvailable(p)}
-                      className={p.isAvailable ? 'btn-outline' : 'btn-success'}
+                      className={isProductAvailable(p) ? 'btn-outline' : 'btn-success'}
                       style={{ padding: '4px 10px', fontSize: '12px' }}
                     >
-                      {p.isAvailable ? 'Скрыть' : 'Показать'}
+                      {isProductAvailable(p) ? 'Скрыть' : 'Показать'}
                     </button>
                     <button
                       onClick={() => handleDelete(p.id)}

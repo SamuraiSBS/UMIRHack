@@ -39,6 +39,7 @@ model User {
   // Orders assigned to this user as a courier
   courierOrders  Order[]      @relation("CourierOrders")
   shift          CourierShift?
+  deliveryAddresses DeliveryAddress[]
 }
 
 model Business {
@@ -58,6 +59,8 @@ model TradingPoint {
   id         String   @id @default(cuid())
   name       String
   address    String
+  lat        Float?
+  lng        Float?
   businessId String
   business   Business @relation(fields: [businessId], references: [id])
   orders     Order[]
@@ -68,6 +71,9 @@ model Product {
   name        String
   description String?
   price       Float
+  imageUrl    String?
+  isAvailable Boolean     @default(true)
+  category    String?
   businessId  String
   business    Business    @relation(fields: [businessId], references: [id])
   orderItems  OrderItem[]
@@ -117,4 +123,13 @@ model CourierShift {
   courierId String   @unique
 
   courier User @relation(fields: [courierId], references: [id])
+}
+
+model DeliveryAddress {
+  id         String   @id @default(cuid())
+  label      String
+  address    String
+  customerId String
+
+  customer User @relation(fields: [customerId], references: [id])
 }
