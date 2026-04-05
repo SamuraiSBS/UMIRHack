@@ -4,6 +4,7 @@ import api from '../../api/client';
 import LeafletMap from '../../components/LeafletMap';
 import { CITY_OPTIONS, getCityConfig } from '../../lib/cities';
 import { fetchRoute, geocodeAddress, haversineKm, reverseGeocode } from '../../lib/map';
+import { asArray } from '../../lib/safeData';
 
 // Product modal (Yandex Food style)
 function ProductModal({ product, qty, onClose, onAdd, onChangeQty }) {
@@ -206,9 +207,9 @@ export default function Menu() {
         if (!isMounted) return;
 
         setBusiness(biz);
-        setProducts(prods);
-        setTradingPoints(points);
-        setSavedAddresses(addresses);
+        setProducts(asArray(prods));
+        setTradingPoints(asArray(points));
+        setSavedAddresses(asArray(addresses));
       } catch (err) {
         if (!isMounted) return;
         setError(err.response?.data?.error || 'Не удалось загрузить меню');

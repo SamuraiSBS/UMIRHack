@@ -2,6 +2,7 @@ package com.umirhack.courier.ui.orders
 
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
@@ -183,7 +184,16 @@ fun ActiveOrderScreen(
                                         destinationLng = focusOrder.deliveryLng,
                                     ),
                                 )
-                                context.startActivity(intent)
+                                val activity = intent.resolveActivity(context.packageManager)
+                                if (activity != null) {
+                                    context.startActivity(intent)
+                                } else {
+                                    Toast.makeText(
+                                        context,
+                                        "Не найдено приложение для открытия маршрута",
+                                        Toast.LENGTH_SHORT,
+                                    ).show()
+                                }
                             },
                             modifier = Modifier.fillMaxWidth(),
                         ) {

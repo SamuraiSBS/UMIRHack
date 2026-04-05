@@ -3,21 +3,114 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../api/client';
 import LeafletMap from '../../components/LeafletMap';
 import { fetchRoute } from '../../lib/map';
+import { asArray, asNumber, formatCurrency } from '../../lib/safeData';
 
-const STATUS_LABELS = {
-  ACCEPTED: 'Принят — едете к точке выдачи',
-  DELIVERING: 'В пути к клиенту',
-  DONE: 'Доставлен',
+const STATUS_META = {
+  ACCEPTED: {
+    title: 'Заказ принят',
+    subtitle: 'Едете в точку выдачи, чтобы забрать заказ.',
+    color: '#92400e',
+    background: '#fef3c7',
+  },
+  DELIVERING: {
+    title: 'Заказ в пути',
+    subtitle: 'Везёте заказ клиенту.',
+    color: '#065f46',
+    background: '#d1fae5',
+  },
+  DONE: {
+    title: 'Заказ доставлен',
+    subtitle: 'Доставка завершена.',
+    color: '#1f2937',
+    background: '#e5e7eb',
+  },
 };
 
 const NEXT_STATUS = {
-  ACCEPTED: { status: 'DELIVERING', label: 'Забрал заказ — везу клиенту' },
+  ACCEPTED: { status: 'DELIVERING', label: 'Забрал заказ' },
   DELIVERING: { status: 'DONE', label: 'Доставил заказ' },
 };
 
+function getPickupPoint(order) {
+  if (order?.tradingPoint?.lat == null || order?.tradingPoint?.lng == null) {
+    return null;
+  }
+
+  return {
+    lat: order.tradingPoint.lat,
+    lng: order.tradingPoint.lng,
+  };
+}
+
+function getDeliveryPoint(order) {
+  if (order?.deliveryLat == null || order?.deliveryLng == null) {
+    return null;
+  }
+
+  return {
+    lat: order.deliveryLat,
+    lng: order.deliveryLng,
+  };
+}
+
+function getServerCourierPoint(order) {
+  if (order?.courierLat == null || order?.courierLng == null) {
+    return null;
+  }
+
+  return {
+    lat: order.courierLat,
+    lng: order.courierLng,
+  };
+}
+
+function getRouteStage(order) {
+  if (!order) return null;
+  if (order.status === 'ACCEPTED') return 'pickup';
+  if (order.status === 'DELIVERING') return 'delivery';
+  return null;
+}
+
+function getRouteTarget(order) {
+  const stage = getRouteStage(order);
+  if (stage === 'pickup') return getPickupPoint(order);
+  if (stage === 'delivery') return getDeliveryPoint(order);
+  return null;
+}
+
+function getRouteStart(order, courierPosition) {
+  const liveCourierPoint = courierPosition || getServerCourierPoint(order);
+  const stage = getRouteStage(order);
+
+  if (stage === 'pickup') {
+    return liveCourierPoint;
+  }
+
+  if (stage === 'delivery') {
+    return liveCourierPoint || getPickupPoint(order);
+  }
+
+  return null;
+}
+
+function pointsEqual(first, second) {
+  if (!first || !second) return false;
+  return first.lat === second.lat && first.lng === second.lng;
+}
+
+function buildRouteUrl(from, to) {
+  if (!to) return null;
+
+  if (from) {
+    return `https://yandex.ru/maps/?rtext=${from.lat},${from.lng}~${to.lat},${to.lng}&rtt=auto`;
+  }
+
+  return `https://yandex.ru/maps/?ll=${to.lng},${to.lat}&z=16`;
+}
+
 export default function ActiveOrder() {
   const [order, setOrder] = useState(null);
-  const [history, setHistory] = useState([]); // completed orders
+  const [history, setHistory] = useState([]);
   const [route, setRoute] = useState(null);
   const [courierPosition, setCourierPosition] = useState(null);
   const [geoStatus, setGeoStatus] = useState('Подключаем геолокацию...');
@@ -26,46 +119,97 @@ export default function ActiveOrder() {
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const lastSyncRef = useRef(0);
-
-  function load() {
-    return api.get('/courier/orders').then(r => {
-      const active = r.data.find(o => o.status === 'ACCEPTED' || o.status === 'DELIVERING');
-      const done = r.data.filter(o => o.status === 'DONE');
-      setOrder(active || null);
-      setHistory(done);
-    });
-  }
-
-  useEffect(() => { load().finally(() => setLoading(false)); }, []);
+  const mountedRef = useRef(false);
+  const requestIdRef = useRef(0);
+  const activeOrderRef = useRef(null);
 
   useEffect(() => {
-    if (order?.courierLat != null && order?.courierLng != null) {
-      setCourierPosition({ lat: order.courierLat, lng: order.courierLng });
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  async function load() {
+    const requestId = ++requestIdRef.current;
+    const response = await api.get('/courier/orders');
+    if (!mountedRef.current || requestId !== requestIdRef.current) {
+      return null;
     }
-  }, [order?.courierLat, order?.courierLng]);
+
+    const orders = asArray(response.data);
+    const active = orders.find((item) => item?.status === 'ACCEPTED' || item?.status === 'DELIVERING') || null;
+    const done = orders.filter((item) => item?.status === 'DONE');
+
+    setOrder(active);
+    setHistory(done);
+    return { active, done };
+  }
+
+  useEffect(() => {
+    load()
+      .then(() => {
+        if (mountedRef.current) {
+          setError('');
+        }
+      })
+      .catch((err) => {
+        if (mountedRef.current) {
+          setError(err.response?.data?.error || 'Не удалось загрузить активный заказ');
+        }
+      })
+      .finally(() => {
+        if (mountedRef.current) {
+          setLoading(false);
+        }
+      });
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      load().catch(() => {});
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    activeOrderRef.current = order;
+  }, [order]);
+
+  useEffect(() => {
+    const serverCourierPoint = getServerCourierPoint(order);
+    if (serverCourierPoint) {
+      setCourierPosition((current) => current || serverCourierPoint);
+      return;
+    }
+
+    if (!order) {
+      setCourierPosition(null);
+    }
+  }, [order?.id, order?.courierLat, order?.courierLng]);
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadRoutePreview() {
-      const pickupPoint = order?.tradingPoint?.lat != null && order?.tradingPoint?.lng != null
-        ? { lat: order.tradingPoint.lat, lng: order.tradingPoint.lng }
-        : null;
-      const routeStart = pickupPoint || courierPosition;
+      const routeStart = getRouteStart(order, courierPosition);
+      const routeTarget = getRouteTarget(order);
 
-      if (order?.deliveryLat == null || order?.deliveryLng == null || !routeStart) {
+      if (!routeStart || !routeTarget || pointsEqual(routeStart, routeTarget)) {
         setRoute(null);
         return;
       }
 
       try {
-        const result = await fetchRoute(routeStart, {
-          lat: order.deliveryLat,
-          lng: order.deliveryLng,
-        });
-        if (!cancelled) setRoute(result);
+        const result = await fetchRoute(routeStart, routeTarget);
+        if (!cancelled) {
+          setRoute(result);
+        }
       } catch {
-        if (!cancelled) setRoute(null);
+        if (!cancelled) {
+          setRoute(null);
+        }
       }
     }
 
@@ -73,7 +217,17 @@ export default function ActiveOrder() {
     return () => {
       cancelled = true;
     };
-  }, [courierPosition, order?.deliveryLat, order?.deliveryLng, order?.tradingPoint?.lat, order?.tradingPoint?.lng]);
+  }, [
+    courierPosition,
+    order?.id,
+    order?.status,
+    order?.deliveryLat,
+    order?.deliveryLng,
+    order?.tradingPoint?.lat,
+    order?.tradingPoint?.lng,
+    order?.courierLat,
+    order?.courierLng,
+  ]);
 
   useEffect(() => {
     if (!order || !['ACCEPTED', 'DELIVERING'].includes(order.status)) return undefined;
@@ -84,6 +238,11 @@ export default function ActiveOrder() {
 
     const watchId = navigator.geolocation.watchPosition(
       async (position) => {
+        const currentOrder = activeOrderRef.current;
+        if (!currentOrder || !['ACCEPTED', 'DELIVERING'].includes(currentOrder.status)) {
+          return;
+        }
+
         const nextPosition = {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
@@ -96,8 +255,12 @@ export default function ActiveOrder() {
         lastSyncRef.current = now;
 
         try {
-          await api.patch(`/orders/${order.id}/location`, nextPosition);
-        } catch {
+          await api.patch(`/orders/${currentOrder.id}/location`, nextPosition);
+        } catch (geoErr) {
+          const status = geoErr.response?.status;
+          if (status === 404 || status === 409) {
+            return;
+          }
           setGeoStatus('Не удалось отправить текущую геопозицию на сервер.');
         }
       },
@@ -112,26 +275,78 @@ export default function ActiveOrder() {
     );
 
     return () => navigator.geolocation.clearWatch(watchId);
-  }, [order]);
+  }, [order?.id, order?.status]);
 
   async function updateStatus() {
     if (!order) return;
     const next = NEXT_STATUS[order.status];
     if (!next) return;
 
+    const currentOrderId = order.id;
     setUpdating(true);
     setError('');
+
     try {
-      await api.patch(`/orders/${order.id}/status`, { status: next.status });
-      await load();
+      const { data: updatedOrder } = await api.patch(`/orders/${currentOrderId}/status`, { status: next.status });
+      if (!mountedRef.current) return;
+
+      if (updatedOrder?.status === 'DONE') {
+        setOrder(null);
+        setRoute(null);
+        setHistory((prev) => [updatedOrder, ...prev.filter((item) => item?.id !== updatedOrder.id)]);
+        setGeoStatus('Доставка завершена.');
+      } else {
+        setOrder(updatedOrder);
+      }
     } catch (err) {
-      setError(err.response?.data?.error || 'Ошибка обновления статуса');
+      if (mountedRef.current) {
+        setError(err.response?.data?.error || 'Ошибка обновления статуса');
+        await load().catch(() => {});
+      }
     } finally {
-      setUpdating(false);
+      if (mountedRef.current) {
+        setUpdating(false);
+      }
     }
   }
 
+  function openExternalRoute() {
+    const routeStart = getRouteStart(order, courierPosition);
+    const routeTarget = getRouteTarget(order);
+    const routeUrl = buildRouteUrl(routeStart, routeTarget);
+
+    if (!routeUrl) {
+      setError('Не удалось построить маршрут: нет координат точки назначения.');
+      return;
+    }
+
+    window.open(routeUrl, '_blank', 'noopener,noreferrer');
+  }
+
   if (loading) return <div className="page"><p>Загрузка...</p></div>;
+
+  const items = asArray(order?.items);
+  const businessName = order?.business?.name || 'Заведение';
+  const customerName = order?.customer?.name || order?.customer?.email || 'Клиент';
+  const totalPrice = asNumber(order?.totalPrice);
+  const pickupPoint = getPickupPoint(order);
+  const deliveryPoint = getDeliveryPoint(order);
+  const routeStage = getRouteStage(order);
+  const routeTarget = getRouteTarget(order);
+  const routeCenter = routeTarget
+    ? [routeTarget.lat, routeTarget.lng]
+    : deliveryPoint
+      ? [deliveryPoint.lat, deliveryPoint.lng]
+      : pickupPoint
+        ? [pickupPoint.lat, pickupPoint.lng]
+        : [55.7558, 37.6176];
+  const routeTitle = routeStage === 'pickup' ? 'Маршрут до точки выдачи' : 'Маршрут до клиента';
+  const statusMeta = STATUS_META[order?.status] || {
+    title: 'Статус обновляется',
+    subtitle: 'Подтягиваем текущее состояние заказа.',
+    color: '#1d4ed8',
+    background: '#eff6ff',
+  };
 
   return (
     <div className="page" style={{ maxWidth: '560px' }}>
@@ -143,31 +358,52 @@ export default function ActiveOrder() {
         <div className="card" style={{ textAlign: 'center', padding: '40px', marginBottom: '16px' }}>
           <p style={{ fontSize: '32px', marginBottom: '8px' }}>✅</p>
           <p className="text-gray">Нет активного заказа.</p>
-          <button className="btn-primary" style={{ marginTop: '16px' }}
-            onClick={() => navigate('/courier/orders')}>
+          <button
+            className="btn-primary"
+            style={{ marginTop: '16px' }}
+            onClick={() => navigate('/courier/orders')}
+          >
             Смотреть доступные заказы
           </button>
         </div>
       ) : (
         <div className="card" style={{ marginBottom: '16px' }}>
-          {/* Status */}
-          <div style={{ background: '#eff6ff', borderRadius: '8px', padding: '12px 14px', marginBottom: '14px' }}>
-            <p style={{ fontWeight: 700, color: '#1d4ed8' }}>{STATUS_LABELS[order.status]}</p>
+          <div
+            style={{
+              background: statusMeta.background,
+              borderRadius: '8px',
+              padding: '12px 14px',
+              marginBottom: '14px',
+            }}
+          >
+            <p style={{ fontWeight: 700, color: statusMeta.color, marginBottom: '4px' }}>
+              {statusMeta.title}
+            </p>
+            <p className="text-sm" style={{ color: statusMeta.color }}>
+              {statusMeta.subtitle}
+            </p>
           </div>
 
-          {/* Business */}
           <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '2px' }}>Ресторан / магазин</p>
-          <p style={{ fontWeight: 700, fontSize: '16px', marginBottom: '12px' }}>{order.business.name}</p>
+          <p style={{ fontWeight: 700, fontSize: '16px', marginBottom: '12px' }}>{businessName}</p>
 
-          {/* Delivery address — shown only after accepting */}
-          <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '2px' }}>Адрес доставки</p>
+          {order.tradingPoint && (
+            <>
+              <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '2px' }}>Точка выдачи</p>
+              <p style={{ fontWeight: 600, marginBottom: '12px', color: '#111827' }}>
+                {order.tradingPoint.name} {order.tradingPoint.address ? `— ${order.tradingPoint.address}` : ''}
+              </p>
+            </>
+          )}
+
+          <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '2px' }}>Адрес клиента</p>
           <p style={{ fontWeight: 600, marginBottom: '12px', color: '#111827' }}>{order.address}</p>
 
-          {order.deliveryLat != null && order.deliveryLng != null && (
+          {routeTarget && (
             <div style={{ marginBottom: '14px' }}>
-              <div className="tracking-summary">
+              <div className="tracking-summary" style={{ marginBottom: '10px' }}>
                 <div>
-                  <strong>Маршрут от точки бизнеса до клиента</strong>
+                  <strong>{routeTitle}</strong>
                   <p className="text-sm text-gray">{geoStatus}</p>
                 </div>
                 {route && (
@@ -177,38 +413,49 @@ export default function ActiveOrder() {
                   </div>
                 )}
               </div>
+
+              <button
+                className="btn-outline w-full"
+                style={{ marginBottom: '10px' }}
+                onClick={openExternalRoute}
+              >
+                Построить маршрут
+              </button>
+
               <LeafletMap
-                center={[order.deliveryLat, order.deliveryLng]}
+                center={routeCenter}
                 zoom={13}
                 interactive={false}
-                origin={order.tradingPoint?.lat != null && order.tradingPoint?.lng != null ? { lat: order.tradingPoint.lat, lng: order.tradingPoint.lng } : null}
-                destination={{ lat: order.deliveryLat, lng: order.deliveryLng }}
-                courier={courierPosition || (order.courierLat != null && order.courierLng != null ? { lat: order.courierLat, lng: order.courierLng } : null)}
+                origin={routeStage === 'pickup' ? null : pickupPoint}
+                destination={routeTarget}
+                courier={courierPosition || getServerCourierPoint(order)}
                 route={route?.coordinates}
+                destinationLabel={routeStage === 'pickup' ? 'P' : 'C'}
+                destinationPopup={routeStage === 'pickup' ? 'Точка выдачи' : 'Клиент'}
                 height={300}
               />
             </div>
           )}
 
-          {/* Customer contact */}
           <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '2px' }}>Клиент</p>
-          <p style={{ marginBottom: '12px' }}>{order.customer?.name || order.customer?.email}</p>
+          <p style={{ marginBottom: '12px' }}>{customerName}</p>
 
-          {/* Order items */}
           <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '10px', marginBottom: '14px' }}>
-            {order.items.map(item => (
-              <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '4px' }}>
-                <span>{item.product.name} × {item.quantity}</span>
-                <span>{(item.product.price * item.quantity).toFixed(0)} ₽</span>
+            {items.map((item, index) => (
+              <div
+                key={item?.id || `${order?.id || 'order'}-${index}`}
+                style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '4px' }}
+              >
+                <span>{item?.product?.name || 'Товар'} × {item?.quantity || 0}</span>
+                <span>{formatCurrency(asNumber(item?.product?.price) * asNumber(item?.quantity))}</span>
               </div>
             ))}
             <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, marginTop: '6px' }}>
               <span>Итого</span>
-              <span>{order.totalPrice.toFixed(0)} ₽</span>
+              <span>{formatCurrency(totalPrice)}</span>
             </div>
           </div>
 
-          {/* Action button */}
           {NEXT_STATUS[order.status] && (
             <button
               className="btn-success w-full"
@@ -222,7 +469,6 @@ export default function ActiveOrder() {
         </div>
       )}
 
-      {/* Link to completed deliveries history */}
       <button
         className="btn-outline w-full"
         style={{ marginTop: '8px' }}

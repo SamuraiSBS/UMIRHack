@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import api from '../../api/client';
 import LeafletMap from '../../components/LeafletMap';
 import { fetchRoute } from '../../lib/map';
+import { asArray, asNumber, formatCurrency, formatDate } from '../../lib/safeData';
 
 const STATUS_LABELS = {
   CREATED: ['#1e3a5f', '#60a5fa', 'Создан — ждём курьера'],
@@ -113,7 +114,7 @@ export default function MyOrders() {
   const [filter, setFilter] = useState('all');
 
   function load() {
-    return api.get('/orders/my').then((r) => setOrders(r.data)).catch(() => {});
+    return api.get('/orders/my').then((r) => setOrders(asArray(r.data))).catch(() => {});
   }
 
   useEffect(() => { load().finally(() => setLoading(false)); }, []);
@@ -193,6 +194,12 @@ export default function MyOrders() {
           <div key={order.id} style={{
             background: '#2A2A2A', borderRadius: '16px', overflow: 'hidden',
           }}>
+            {(() => {
+              const items = asArray(order?.items);
+              const totalPrice = asNumber(order?.totalPrice);
+              const businessName = order?.business?.name || 'Заведение';
+              return (
+                <>
             <div style={{
               padding: '16px 20px',
               display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
@@ -201,10 +208,10 @@ export default function MyOrders() {
             }}>
               <div>
                 <p style={{ fontWeight: 700, fontSize: '16px', color: '#FFFFFF', marginBottom: '3px' }}>
-                  {order.business?.name}
+                  {businessName}
                 </p>
                 <p style={{ fontSize: '12px', color: '#6B6B6B' }}>
-                  {new Date(order.createdAt).toLocaleString('ru-RU')}
+                  {formatDate(order?.createdAt)}
                 </p>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -242,13 +249,13 @@ export default function MyOrders() {
               {ACTIVE_STATUSES.has(order.status) && <OrderRouteMap order={order} />}
 
               <div style={{ marginTop: '8px' }}>
-                {order.items.map((item) => (
-                  <div key={item.id} style={{
+                {items.map((item, index) => (
+                  <div key={item?.id || `${order.id}-${index}`} style={{
                     display: 'flex', justifyContent: 'space-between',
                     fontSize: '13px', color: '#CCCCCC', marginBottom: '4px',
                   }}>
-                    <span>{item.product.name} × {item.quantity}</span>
-                    <span>{(item.product.price * item.quantity).toFixed(0)} ₽</span>
+                    <span>{item?.product?.name || 'Товар'} × {item?.quantity || 0}</span>
+                    <span>{formatCurrency(asNumber(item?.product?.price) * asNumber(item?.quantity))}</span>
                   </div>
                 ))}
                 <div style={{
@@ -258,10 +265,13 @@ export default function MyOrders() {
                   borderTop: '1px solid #3A3A3A',
                 }}>
                   <span>Итого</span>
-                  <span>{order.totalPrice.toFixed(0)} ₽</span>
+                  <span>{formatCurrency(totalPrice)}</span>
                 </div>
               </div>
             </div>
+                </>
+              );
+            })()}
           </div>
         ))}
       </div>

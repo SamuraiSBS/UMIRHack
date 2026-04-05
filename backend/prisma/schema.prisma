@@ -21,6 +21,7 @@ enum OrderStatus {
   DELIVERING
   DONE
   CANCELLED
+  REJECTED
 }
 
 model User {

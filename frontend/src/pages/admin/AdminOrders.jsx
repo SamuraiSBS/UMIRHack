@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from '../../api/client';
+import { asArray, formatCurrency, formatDate, shortId } from '../../lib/safeData';
 
 const STATUS_LABELS = {
   CREATED: ['badge-created', 'Создан'],
@@ -21,7 +22,7 @@ export default function AdminOrders() {
 
   useEffect(() => {
     api.get('/admin/orders')
-      .then(r => setOrders(r.data))
+      .then(r => setOrders(asArray(r.data)))
       .catch(() => setError('Ошибка загрузки заказов'))
       .finally(() => setLoading(false));
   }, []);
@@ -36,12 +37,12 @@ export default function AdminOrders() {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
         {orders.map(order => (
-          <div key={order.id} className="card">
+          <div key={order?.id || formatDate(order?.createdAt)} className="card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px' }}>
               <div>
-                <p style={{ fontWeight: 700, fontSize: '14px' }}>{order.business?.name}</p>
+                <p style={{ fontWeight: 700, fontSize: '14px' }}>{order?.business?.name || 'Заведение'}</p>
                 <p style={{ fontSize: '12px', color: '#6b7280' }}>
-                  #{order.id.slice(-6).toUpperCase()} · {new Date(order.createdAt).toLocaleString('ru-RU')}
+                  #{shortId(order?.id)} · {formatDate(order?.createdAt)}
                 </p>
               </div>
               <StatusBadge status={order.status} />
@@ -61,7 +62,7 @@ export default function AdminOrders() {
               </div>
               <div>
                 <span style={{ color: '#6b7280' }}>Сумма: </span>
-                <strong>{order.totalPrice.toFixed(0)} ₽</strong>
+                <strong>{formatCurrency(order?.totalPrice)}</strong>
               </div>
             </div>
           </div>

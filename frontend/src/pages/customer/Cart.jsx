@@ -4,6 +4,7 @@ import api from '../../api/client';
 import LeafletMap from '../../components/LeafletMap';
 import { CITY_OPTIONS, getCityConfig } from '../../lib/cities';
 import { fetchRoute, geocodeAddress, haversineKm, reverseGeocode } from '../../lib/map';
+import { asArray } from '../../lib/safeData';
 
 export default function Cart() {
   const navigate = useNavigate();
@@ -62,7 +63,7 @@ export default function Cart() {
           api.get(`/business/${businessId}/products`).then((r) => r.data),
           api.get(`/business/${businessId}/trading-points`).then((r) => r.data).catch(() => []),
         ]);
-        setCartData({ businessId, business: biz, products: prods, cart: foundCart, tradingPoints: points });
+        setCartData({ businessId, business: biz, products: asArray(prods), cart: foundCart, tradingPoints: asArray(points) });
       } catch (err) {
         setError(err.response?.data?.error || 'Не удалось загрузить данные корзины');
       } finally {
