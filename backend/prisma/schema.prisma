@@ -3,8 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
@@ -21,7 +21,6 @@ enum OrderStatus {
   DELIVERING
   DONE
   CANCELLED
-  REJECTED
 }
 
 model User {
@@ -34,21 +33,12 @@ model User {
   isBlocked    Boolean  @default(false)
   createdAt    DateTime @default(now())
 
-  business          Business?
+  business      Business?
   // Orders placed by this user as a customer
-  customerOrders    Order[]           @relation("CustomerOrders")
+  customerOrders Order[]      @relation("CustomerOrders")
   // Orders assigned to this user as a courier
-  courierOrders     Order[]           @relation("CourierOrders")
-  shift             CourierShift?
-  deliveryAddresses DeliveryAddress[]
-}
-
-model DeliveryAddress {
-  id         String @id @default(cuid())
-  label      String
-  address    String
-  customerId String
-  customer   User   @relation(fields: [customerId], references: [id])
+  courierOrders  Order[]      @relation("CourierOrders")
+  shift          CourierShift?
 }
 
 model Business {
@@ -68,8 +58,6 @@ model TradingPoint {
   id         String   @id @default(cuid())
   name       String
   address    String
-  lat        Float?
-  lng        Float?
   businessId String
   business   Business @relation(fields: [businessId], references: [id])
   orders     Order[]
@@ -80,9 +68,6 @@ model Product {
   name        String
   description String?
   price       Float
-  imageUrl    String?
-  isAvailable Boolean     @default(true)
-  category    String?
   businessId  String
   business    Business    @relation(fields: [businessId], references: [id])
   orderItems  OrderItem[]
