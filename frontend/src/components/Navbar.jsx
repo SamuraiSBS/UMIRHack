@@ -43,7 +43,7 @@ export default function Navbar() {
   const navLinks = [];
   if (isCustomer) {
     navLinks.push({ to: '/shops', label: 'Заказать', primary: true });
-    navLinks.push({ to: '/orders', label: 'Мои заказы' });
+    navLinks.push({ to: '/orders', label: 'Мои заказы', secondary: true });
   } else if (user?.role === 'COURIER') {
     navLinks.push({ to: '/courier', label: 'Смена' });
     navLinks.push({ to: '/courier/orders', label: 'Заказы' });
@@ -182,7 +182,7 @@ export default function Navbar() {
           <Link
             key={link.to}
             to={link.to}
-            className={`nav-mobile-link${link.primary ? ' primary' : ''}`}
+            className={`nav-mobile-link${link.primary ? ' primary' : ''}${link.secondary ? ' secondary' : ''}`}
             onClick={() => setMenuOpen(false)}
           >{link.label}</Link>
         ))}
