@@ -19,6 +19,7 @@ router.get('/shift', verifyToken, requireRole('COURIER'), async (req, res) => {
       city: courier?.deliveryZone ?? null,
     });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Failed to fetch shift' });
   }
 });
@@ -47,8 +48,12 @@ router.post('/shift/start', verifyToken, requireRole('COURIER'), async (req, res
       where: { id: req.user.id },
       data: { deliveryZone: city },
     });
-    res.json({ ...shift, city });
+    res.json({
+      isActive: shift.isActive,
+      city,
+    });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Failed to start shift' });
   }
 });
@@ -56,13 +61,23 @@ router.post('/shift/start', verifyToken, requireRole('COURIER'), async (req, res
 // POST /api/courier/shift/stop — stop shift
 router.post('/shift/stop', verifyToken, requireRole('COURIER'), async (req, res) => {
   try {
-    const shift = await prisma.courierShift.upsert({
-      where: { courierId: req.user.id },
-      update: { isActive: false },
-      create: { courierId: req.user.id, isActive: false },
+    const [shift, courier] = await Promise.all([
+      prisma.courierShift.upsert({
+        where: { courierId: req.user.id },
+        update: { isActive: false },
+        create: { courierId: req.user.id, isActive: false },
+      }),
+      prisma.user.findUnique({
+        where: { id: req.user.id },
+        select: { deliveryZone: true },
+      }),
+    ]);
+    res.json({
+      isActive: shift.isActive,
+      city: courier?.deliveryZone ?? null,
     });
-    res.json(shift);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Failed to stop shift' });
   }
 });
@@ -88,6 +103,7 @@ router.patch('/city', verifyToken, requireRole('COURIER'), async (req, res) => {
       city: courier.deliveryZone,
     });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Failed to update city' });
   }
 });
@@ -107,6 +123,7 @@ router.get('/orders', verifyToken, requireRole('COURIER'), async (req, res) => {
     });
     res.json(orders);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Failed to fetch courier orders' });
   }
 });

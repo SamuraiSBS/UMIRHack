@@ -2,7 +2,7 @@ package com.umirhack.courier.data.remote
 
 import com.umirhack.courier.BuildConfig
 import com.umirhack.courier.data.local.SessionStorage
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -11,18 +11,18 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 class ApiProvider(private val sessionStorage: SessionStorage) {
-    suspend fun api(): CourierApi {
-        val session = sessionStorage.session.first()
-        val authInterceptor = Interceptor { chain ->
-            val original = chain.request()
-            val requestBuilder = original.newBuilder()
-            if (!session.token.isNullOrBlank()) {
-                requestBuilder.header("Authorization", "Bearer ${session.token}")
-            }
-            chain.proceed(requestBuilder.build())
+    private val authInterceptor = Interceptor { chain ->
+        val token = runCatching { runBlocking { sessionStorage.snapshot().token } }.getOrNull()
+        val original = chain.request()
+        val requestBuilder = original.newBuilder()
+        if (!token.isNullOrBlank()) {
+            requestBuilder.header("Authorization", "Bearer $token")
         }
+        chain.proceed(requestBuilder.build())
+    }
 
-        val client = OkHttpClient.Builder()
+    private val client by lazy {
+        OkHttpClient.Builder()
             .addInterceptor(authInterceptor)
             .addInterceptor(
                 HttpLoggingInterceptor().apply {
@@ -34,12 +34,19 @@ class ApiProvider(private val sessionStorage: SessionStorage) {
             .writeTimeout(60, TimeUnit.SECONDS)
             .callTimeout(75, TimeUnit.SECONDS)
             .build()
+    }
 
-        return Retrofit.Builder()
+    private val retrofit by lazy {
+        Retrofit.Builder()
             .baseUrl(BuildConfig.DEFAULT_API_BASE_URL)
             .client(client)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
-            .create(CourierApi::class.java)
     }
+
+    private val courierApi by lazy {
+        retrofit.create(CourierApi::class.java)
+    }
+
+    fun api(): CourierApi = courierApi
 }
